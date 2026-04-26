@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SFP — Sistema Financeiro Pessoal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-inner">
+      <div class="header-logo">
+        <span class="logo-icon">◆</span>
+        <span class="logo-text">SFP</span>
+      </div>
+      <nav class="nav-tabs" id="navTabs">
+        <button class="nav-tab active" data-tab="visao-geral">Visão Geral</button>
+        <button class="nav-tab" data-tab="transacoes">Transações</button>
+        <button class="nav-tab" data-tab="parcelamentos">Parcelamentos</button>
+        <button class="nav-tab" data-tab="assinaturas">Assinaturas</button>
+        <button class="nav-tab" data-tab="categorias">Categorias</button>
+        <button class="nav-tab" data-tab="cartoes">Cartões</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- CONTEÚDO PRINCIPAL -->
+  <main class="main" id="mainContent">
+
+    <!-- ABA: VISÃO GERAL -->
+    <section class="tab-content active" id="tab-visao-geral"></section>
+
+    <!-- ABA: TRANSAÇÕES -->
+    <section class="tab-content" id="tab-transacoes"></section>
+
+    <!-- ABA: PARCELAMENTOS -->
+    <section class="tab-content" id="tab-parcelamentos"></section>
+
+    <!-- ABA: ASSINATURAS -->
+    <section class="tab-content" id="tab-assinaturas"></section>
+
+    <!-- ABA: CATEGORIAS -->
+    <section class="tab-content" id="tab-categorias"></section>
+
+    <!-- ABA: CARTÕES -->
+    <section class="tab-content" id="tab-cartoes"></section>
+
+  </main>
+
+  <!-- PAINEL LATERAL: NOVA TRANSAÇÃO -->
+  <div class="overlay" id="overlay"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <h2 class="drawer-title">Nova Transação</h2>
+      <button class="drawer-close" id="drawerClose">✕</button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+
+  <!-- SCRIPTS -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
