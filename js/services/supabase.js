@@ -182,3 +182,20 @@ export async function proximoIdParcela() {
   const num    = parseInt(ultimo.replace('P', '')) + 1
   return `P${String(num).padStart(6, '0')}`
 }
+
+// Gera próximo ID de transferência
+export async function proximoIdTransf() {
+  const { data, error } = await supabase
+    .from('lancamentos')
+    .select('id_transf')
+    .not('id_transf', 'is', null)
+    .order('id_transf', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+  if (!data.length) return 'T000001'
+
+  const ultimo = data[0].id_transf
+  const num    = parseInt(ultimo.replace('T', '')) + 1
+  return `T${String(num).padStart(6, '0')}`
+}

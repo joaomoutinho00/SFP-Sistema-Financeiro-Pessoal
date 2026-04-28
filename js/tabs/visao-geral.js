@@ -4,6 +4,7 @@
 
 import { getLancamentos } from '../services/supabase.js'
 import { supabase } from '../config.js'
+import { abrirNovoLancamento } from '../forms/lancamento.js'
 import { formatBRL, formatData, formatCompetencia, competenciaAtual, addMeses, iniciais, badgeBanco, classeValor, sinaisValor } from '../services/formatters.js'
 
 const COR_CAT = {
@@ -27,10 +28,11 @@ const corCat = nome => COR_CAT[nome?.toUpperCase()] ?? '#6b7280'
 let competencia = competenciaAtual()
 let chartLinha  = null
 
-const eEntrada = l => l.metodos?.id_tipo === 1 && l.categorias?.id_tipo !== 4
-const eCredito = l => l.metodos?.id_tipo === 2 && l.metodos?.nome === 'CRÉDITO'   && l.categorias?.id_tipo !== 4
-const eDespesa = l => l.metodos?.id_tipo === 2 && l.metodos?.nome !== 'CRÉDITO'   && l.metodos?.nome !== 'FATURA' && l.categorias?.id_tipo !== 4
-const eSaida   = l => l.metodos?.id_tipo === 2 && l.metodos?.nome !== 'FATURA'    && l.categorias?.id_tipo !== 4
+const eEntrada    = l => l.metodos?.id_tipo === 1 && l.categorias?.id_tipo !== 4
+const eCredito    = l => l.metodos?.id_tipo === 2 && l.metodos?.nome === 'CRÉDITO'   && l.categorias?.id_tipo !== 4
+const eDespesa    = l => l.metodos?.id_tipo === 2 && l.metodos?.nome !== 'CRÉDITO'   && l.metodos?.nome !== 'FATURA' && l.categorias?.id_tipo !== 4
+const eSaida      = l => l.metodos?.id_tipo === 2 && l.metodos?.nome !== 'FATURA'    && l.categorias?.id_tipo !== 4
+const eReembolsoC = l => l.metodos?.id_tipo === 4 && l.metodos?.nome === 'REEMBOLSO CARTÃO'
 
 export async function render(container) {
   container.innerHTML = renderShell()
@@ -50,7 +52,7 @@ function renderShell() {
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        Nova Transação
+        Novo Lançamento
       </button>
     </div>
 
@@ -77,7 +79,7 @@ function renderShell() {
         <div id="listaCategorias"></div>
       </div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:16px">Últimas Transações</div>
+        <div class="card-title" style="margin-bottom:16px">Últimos Lançamentos</div>
         <div id="listaUltimas"></div>
       </div>
     </div>
@@ -113,7 +115,7 @@ function renderKPIs(lancamentos) {
 
   const receitas = soma(eEntrada)
   const despesas = soma(eDespesa)
-  const fatura   = soma(eCredito)
+  const fatura   = soma(eCredito) - soma(eReembolsoC)
   const saldo    = receitas - despesas - fatura
 
   document.getElementById('kpiGrid').innerHTML = `
@@ -363,8 +365,6 @@ function bindEventos(container) {
     competencia = addMeses(competencia, 1)
     await carregarDados()
   })
-  document.getElementById('btnNovaTransacao').addEventListener('click', () => {
-    document.getElementById('drawer').classList.add('active')
-    document.getElementById('overlay').classList.add('active')
-  })
+  document.getElementById('btnNovaTransacao').addEventListener('click', abrirNovoLancamento)
+  window.addEventListener('sfp:lancamento-salvo', carregarDados)
 }
