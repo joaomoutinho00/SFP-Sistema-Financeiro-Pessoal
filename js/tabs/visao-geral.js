@@ -175,7 +175,7 @@ function renderKPIs(lancamentos) {
     </div>
     <div class="card">
       <div class="card-title">Fatura</div>
-      <div class="card-value valor-saida">${formatBRL(fatura)}</div>
+      <div class="card-value valor-fatura">${formatBRL(fatura)}</div>
     </div>
     <div class="card">
       <div class="card-title">Saldo Final</div>
