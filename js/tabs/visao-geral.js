@@ -25,8 +25,10 @@ const COR_CAT = {
 
 const corCat = nome => COR_CAT[nome?.toUpperCase()] ?? '#6b7280'
 
-let competencia = competenciaAtual()
-let chartLinha  = null
+let competencia    = competenciaAtual()
+let chartBarras    = null
+let chartResultado = null
+let chartEntradas  = null
 
 const eEntrada    = l => l.metodos?.id_tipo === 1 && l.categorias?.id_tipo !== 4
 const eCredito    = l => l.metodos?.id_tipo === 2 && l.metodos?.nome === 'CRÉDITO'   && l.categorias?.id_tipo !== 4
@@ -60,20 +62,17 @@ function renderShell() {
       ${Array(4).fill('<div class="card"><div class="card-title">...</div><div class="card-value" style="color:var(--text-muted)">—</div></div>').join('')}
     </div>
 
-    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:24px">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:16px">Ritmo de Gastos</div>
-        <div style="height:200px;position:relative">
-          <canvas id="chartLinha"></canvas>
-        </div>
+    <div class="card" style="margin-bottom:24px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div class="card-title">Entradas vs Saídas</div>
+        <span style="font-size:12px;color:var(--text-muted)">Últimos 6 meses</span>
       </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:16px">Saldo Atual</div>
-        <div id="listaContas"></div>
+      <div style="height:220px;position:relative">
+        <canvas id="chartBarras"></canvas>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
       <div class="card">
         <div class="card-title" style="margin-bottom:16px">Principais Categorias</div>
         <div id="listaCategorias"></div>
@@ -83,31 +82,78 @@ function renderShell() {
         <div id="listaUltimas"></div>
       </div>
     </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="card-title">Resultado Mensal</div>
+          <span style="font-size:12px;color:var(--text-muted)">Últimos 6 meses</span>
+        </div>
+        <div style="height:200px;position:relative">
+          <canvas id="chartResultado"></canvas>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="card-title">Evolução das Entradas</div>
+          <span style="font-size:12px;color:var(--text-muted)">Últimos 6 meses</span>
+        </div>
+        <div style="height:200px;position:relative">
+          <canvas id="chartEntradas"></canvas>
+        </div>
+      </div>
+    </div>
   `
 }
 
 async function carregarDados() {
   document.getElementById('periodLabel').textContent = formatCompetencia(competencia)
 
-  chartLinha?.destroy()
-  chartLinha = null
+  chartBarras?.destroy();    chartBarras    = null
+  chartResultado?.destroy(); chartResultado = null
+  chartEntradas?.destroy();  chartEntradas  = null
 
   try {
     const compAnt = addMeses(competencia, -1)
-    const [lancamentos, lancamentosAnt, contas] = await Promise.all([
+    const [lancamentos, lancamentosAnt, totaisMeses] = await Promise.all([
       getLancamentos({ competencia }),
       getLancamentos({ competencia: compAnt }),
-      calcSaldoContas(),
+      buscarTotaisMeses(),
     ])
 
     renderKPIs(lancamentos)
-    renderRitmoGastos(lancamentos)
-    renderContas(contas)
+    renderComparativo(totaisMeses)
     renderCategorias(lancamentos, lancamentosAnt)
     renderUltimas(lancamentos)
+    renderResultadoMeses(totaisMeses)
+    renderEvolucaoEntradas(totaisMeses)
   } catch (err) {
     console.error(err)
   }
+}
+
+// Busca e agrega os últimos 6 meses em uma única query
+async function buscarTotaisMeses() {
+  const meses = []
+  for (let i = 5; i >= 0; i--) meses.push(addMeses(competencia, -i))
+
+  const { data, error } = await supabase
+    .from('lancamentos')
+    .select('valor, competencia, metodos(id, nome, id_tipo), categorias(id, id_tipo)')
+    .gte('competencia', meses[0])
+    .lte('competencia', meses[meses.length - 1])
+
+  if (error) throw error
+
+  return meses.map(m => {
+    const doMes    = (data ?? []).filter(l => l.competencia === m)
+    const entradas = doMes.filter(eEntrada).reduce((s, l) => s + Math.abs(l.valor), 0)
+    const saidas   = doMes.filter(eSaida).reduce((s, l) => s + Math.abs(l.valor), 0)
+    const label    = new Date(m + 'T00:00:00')
+      .toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' })
+      .replace(/^\w/, c => c.toUpperCase())
+    return { competencia: m, label, entradas, saidas, resultado: entradas - saidas }
+  })
 }
 
 function renderKPIs(lancamentos) {
@@ -138,38 +184,71 @@ function renderKPIs(lancamentos) {
   `
 }
 
-function renderRitmoGastos(lancamentos) {
-  const ano  = parseInt(competencia.slice(0, 4))
-  const mes  = parseInt(competencia.slice(5, 7))
-  const dias = new Date(ano, mes, 0).getDate()
-
-  const gastosDia = Array(dias).fill(0)
-  for (const l of lancamentos) {
-    if (!l.data) continue
-    if (l.categorias?.id_tipo === 4) continue
-    const nome = l.metodos?.nome
-    if (nome !== 'PIX' && nome !== 'CRÉDITO') continue
-    const d = parseInt(l.data.slice(8, 10)) - 1
-    if (d >= 0 && d < dias) gastosDia[d] += Math.abs(l.valor)
-  }
-
-  const acumulado = []
-  let soma = 0
-  for (const v of gastosDia) { soma += v; acumulado.push(soma) }
-
-  chartLinha = new Chart(document.getElementById('chartLinha'), {
-    type: 'line',
+function renderComparativo(totais) {
+  chartBarras = new Chart(document.getElementById('chartBarras'), {
+    type: 'bar',
     data: {
-      labels: Array.from({ length: dias }, (_, i) => i + 1),
+      labels: totais.map(t => t.label),
+      datasets: [
+        {
+          label: 'Entradas',
+          data: totais.map(t => t.entradas),
+          backgroundColor: 'rgba(16,185,129,0.80)',
+          borderRadius: 5,
+          borderSkipped: false,
+        },
+        {
+          label: 'Saídas',
+          data: totais.map(t => t.saidas),
+          backgroundColor: 'rgba(220,38,38,0.72)',
+          borderRadius: 5,
+          borderSkipped: false,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            font: { family: 'Sora', size: 11 },
+            boxWidth: 10,
+            boxHeight: 10,
+            borderRadius: 3,
+            useBorderRadius: true,
+          }
+        },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${formatBRL(ctx.parsed.y)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af' } },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af', callback: v => `R$ ${(v/1000).toFixed(1)}k` }
+        }
+      }
+    }
+  })
+}
+
+function renderResultadoMeses(totais) {
+  const cores = totais.map(t =>
+    t.resultado >= 0 ? 'rgba(16,185,129,0.82)' : 'rgba(220,38,38,0.75)'
+  )
+
+  chartResultado = new Chart(document.getElementById('chartResultado'), {
+    type: 'bar',
+    data: {
+      labels: totais.map(t => t.label),
       datasets: [{
-        data: acumulado,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37,99,235,0.07)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.35,
-        pointRadius: 0,
-        pointHoverRadius: 4,
+        label: 'Resultado',
+        data: totais.map(t => t.resultado),
+        backgroundColor: cores,
+        borderRadius: 5,
+        borderSkipped: false,
       }]
     },
     options: {
@@ -177,87 +256,55 @@ function renderRitmoGastos(lancamentos) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => formatBRL(ctx.parsed.y) } }
+        tooltip: { callbacks: { label: ctx => `Resultado: ${formatBRL(ctx.parsed.y)}` } }
       },
       scales: {
-        x: {
-          grid: { display: false },
-          ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af', maxTicksLimit: 10 }
-        },
+        x: { grid: { display: false }, ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af' } },
         y: {
           grid: { color: '#f1f5f9' },
-          ticks: {
-            font: { family: 'Sora', size: 11 },
-            color: '#9ca3af',
-            callback: v => `R$ ${(v / 1000).toFixed(1)}k`
-          }
+          ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af', callback: v => `R$ ${(v/1000).toFixed(1)}k` }
         }
       }
     }
   })
 }
 
-async function calcSaldoContas() {
-  const hoje = new Date().toISOString().split('T')[0]
-
-  const [{ data: contas, error: errContas }, { data: lancamentos, error: errLanc }] = await Promise.all([
-    supabase.from('contas').select('id, nome, saldo_inicial, is_investimento'),
-    supabase.from('lancamentos')
-      .select('id_lancamento, id_conta, valor, data, metodos(id, nome, afeta_saldo, id_tipo)')
-      .lte('data', hoje),
-  ])
-
-  if (errContas) throw errContas
-  if (errLanc)   throw errLanc
-
-  for (const conta of contas) {
-    let saldo       = conta.saldo_inicial ?? 0
-    const lances    = lancamentos.filter(l => l.id_conta === conta.id)
-
-    for (const l of lances) {
-      const metodo = l.metodos
-      const valor  = Math.abs(l.valor)
-
-      if (!metodo?.afeta_saldo) continue
-
-      if (!conta.is_investimento) {
-        if (metodo.nome === 'CONTA')    saldo += valor
-        if (metodo.nome === 'PIX')      saldo -= valor
-        if (metodo.nome === 'FATURA')   saldo -= valor
-        if (metodo.nome === 'ENTRADA')  saldo += valor
-        if (metodo.nome === 'SAÍDA')    saldo -= valor
-        if (metodo.nome === 'APORTE')   saldo -= valor
-        if (metodo.nome === 'RETIRADA') saldo += valor
-      } else {
-        if (metodo.nome === 'APORTE')     saldo += valor
-        if (metodo.nome === 'RETIRADA')   saldo -= valor
-        if (metodo.nome === 'RENDIMENTO') saldo += valor
+function renderEvolucaoEntradas(totais) {
+  chartEntradas = new Chart(document.getElementById('chartEntradas'), {
+    type: 'line',
+    data: {
+      labels: totais.map(t => t.label),
+      datasets: [{
+        label: 'Entradas',
+        data: totais.map(t => t.entradas),
+        borderColor: '#10b981',
+        backgroundColor: 'rgba(16,185,129,0.08)',
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 4,
+        pointBackgroundColor: '#10b981',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointHoverRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `Entradas: ${formatBRL(ctx.parsed.y)}` } }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af' } },
+        y: {
+          grid: { color: '#f1f5f9' },
+          ticks: { font: { family: 'Sora', size: 11 }, color: '#9ca3af', callback: v => `R$ ${(v/1000).toFixed(1)}k` }
+        }
       }
     }
-
-    conta.saldo_calculado = saldo
-  }
-
-  return contas
-}
-
-function renderContas(contas) {
-  if (!contas.length) {
-    document.getElementById('listaContas').innerHTML = `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:16px 0">Nenhuma conta</p>`
-    return
-  }
-
-  document.getElementById('listaContas').innerHTML = contas.map((c, i) => {
-    const saldo = c.saldo_calculado ?? 0
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;${i < contas.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
-        ${badgeBanco(c.nome)}
-        <span style="font-size:14px;font-weight:600;color:${saldo >= 0 ? 'var(--green)' : 'var(--red)'}">
-          ${formatBRL(saldo)}
-        </span>
-      </div>
-    `
-  }).join('')
+  })
 }
 
 function renderCategorias(lancamentos, lancamentosAnt) {
@@ -272,19 +319,14 @@ function renderCategorias(lancamentos, lancamentosAnt) {
 
   const atual = agregar(lancamentos)
   const ant   = agregar(lancamentosAnt)
-
-  const top8 = Object.entries(atual).sort((a, b) => b[1] - a[1]).slice(0, 8)
+  const top8  = Object.entries(atual).sort((a, b) => b[1] - a[1]).slice(0, 8)
 
   if (!top8.length) {
     document.getElementById('listaCategorias').innerHTML = `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:24px 0">Nenhum dado</p>`
     return
   }
 
-  const maxRef = Math.max(
-    ...top8.map(([, v]) => v),
-    ...top8.map(([k]) => ant[k] || 0),
-    1
-  )
+  const maxRef = Math.max(...top8.map(([, v]) => v), ...top8.map(([k]) => ant[k] || 0), 1)
 
   const cabecalho = `
     <div style="display:grid;grid-template-columns:1fr auto minmax(72px,120px) 58px auto;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
