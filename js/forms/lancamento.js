@@ -83,6 +83,8 @@ function initDrawer() {
   const fechar = () => {
     document.getElementById('overlay').classList.remove('active')
     document.getElementById('drawer').classList.remove('active')
+    const t = document.querySelector('.drawer-title')
+    if (t) t.textContent = 'Novo Lançamento'
   }
   document.getElementById('overlay').addEventListener('click', fechar)
   document.getElementById('drawerClose').addEventListener('click', fechar)
@@ -776,4 +778,246 @@ export async function abrirNovoLancamento() {
   }
 
   render()
+}
+
+// ── Export: Editar lançamento ─────────────────────────────────
+export async function abrirEditarLancamento(lanc) {
+  initDrawer()
+
+  const overlay = document.getElementById('overlay')
+  const drawer  = document.getElementById('drawer')
+  const title   = drawer.querySelector('.drawer-title')
+  const body    = document.getElementById('drawerBody')
+
+  title.textContent = 'Editar Lançamento'
+  overlay.classList.add('active')
+  drawer.classList.add('active')
+  body.innerHTML = `<div class="loading"><div class="spinner"></div></div>`
+
+  const { metodos, contas, categorias } = await carregarCache()
+
+  const idMetodoFatura = metodos.find(m => m.nome === 'FATURA')?.id
+  const idTipo         = lanc.metodos?.id_tipo
+  const idMetodo       = lanc.metodos?.id
+  const nomeTipo       = TIPOS.find(t => t.id === idTipo)?.label ?? '—'
+  const slugTipo       = TIPOS.find(t => t.id === idTipo)?.slug ?? ''
+
+  function fecharSalvo() {
+    title.textContent = 'Novo Lançamento'
+    overlay.classList.remove('active')
+    drawer.classList.remove('active')
+    window.dispatchEvent(new CustomEvent('sfp:lancamento-salvo'))
+  }
+
+  // Fatura payments cannot be edited
+  if (idTipo === 4 && idMetodo === idMetodoFatura) {
+    body.innerHTML = `
+      <div style="text-align:center;padding:40px 16px;color:var(--text-muted);font-size:14px;line-height:1.7">
+        Pagamentos de fatura não podem ser editados diretamente.<br>
+        Para corrigir, exclua e crie um novo lançamento.
+      </div>
+    `
+    return
+  }
+
+  const cats     = categorias.filter(c => c.id_tipo === idTipo)
+  const catAtual = categorias.find(c => c.id == lanc.categorias?.id)
+  const subsArr  = catAtual?.subcategorias ?? []
+  const showSubcat = lanc.categorias?.id && subsArr.length > 1
+
+  const catSubcatHTML = `
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Categoria</label>
+        <select id="fCategoria" class="form-select">
+          <option value="">Selecionar...</option>
+          ${cats.map(c => `<option value="${c.id}" ${c.id == lanc.categorias?.id ? 'selected' : ''}>${c.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group" id="wrapSubcategoria" style="${showSubcat ? '' : 'display:none'}">
+        <label class="form-label">Subcategoria</label>
+        <select id="fSubcategoria" class="form-select">
+          ${buildSubcatOptions(lanc.categorias?.id, categorias, lanc.subcategorias?.id)}
+        </select>
+      </div>
+    </div>
+  `
+
+  function bindCatEdit() {
+    const fCatEl = document.getElementById('fCategoria')
+    if (!fCatEl) return
+    fCatEl.addEventListener('change', e => {
+      const catId = e.target.value
+      const fSub  = document.getElementById('fSubcategoria')
+      const wrap  = document.getElementById('wrapSubcategoria')
+      if (!fSub || !wrap) return
+      const cat  = categorias.find(c => c.id == catId)
+      const subs = cat?.subcategorias ?? []
+      if (subs.length === 1) {
+        fSub.innerHTML = buildSubcatOptions(catId, categorias, subs[0].id)
+        fSub.value = String(subs[0].id)
+      } else {
+        fSub.innerHTML = buildSubcatOptions(catId, categorias, null)
+      }
+      wrap.style.display = (catId && subs.length > 1) ? '' : 'none'
+    })
+  }
+
+  function lerCamposComuns() {
+    const data      = document.getElementById('fData').value
+    const descricao = (document.getElementById('fDescricao')?.value ?? '').trim()
+    const valorRaw  = parseFloat(document.getElementById('fValor').value)
+    const idCateg   = parseInt(document.getElementById('fCategoria').value)
+    const idSubcat  = parseInt(document.getElementById('fSubcategoria')?.value) || null
+    return { data, descricao, valorRaw, idCateg, idSubcat }
+  }
+
+  async function salvarEdicao(payload, isTransf) {
+    const erroEl = document.getElementById('fErro')
+    erroEl.style.display = 'none'
+    const btn = document.getElementById('fSalvar')
+    btn.disabled    = true
+    btn.textContent = 'Salvando...'
+    try {
+      let q = supabase.from('lancamentos').update(payload)
+      q = isTransf ? q.eq('id_transf', lanc.id_transf) : q.eq('id_lancamento', lanc.id_lancamento)
+      const { error } = await q
+      if (error) throw error
+      fecharSalvo()
+    } catch (err) {
+      erroEl.textContent = 'Erro ao salvar: ' + err.message
+      erroEl.style.display = 'block'
+      btn.disabled    = false
+      btn.textContent = 'Salvar Alterações'
+    }
+  }
+
+  // ── TRANSFERÊNCIA ─────────────────────────────────────────────
+  if (idTipo === 3) {
+    body.innerHTML = `
+      <div class="tipo-badge tipo-badge--transf">Transferência</div>
+      <div class="form-row-2">
+        <div class="form-group">
+          <label class="form-label">Data</label>
+          <input id="fData" type="date" class="form-input" value="${lanc.data ?? ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Valor (R$)</label>
+          <input id="fValor" type="number" class="form-input" placeholder="0.00" step="0.01" min="0" value="${Math.abs(lanc.valor ?? 0)}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <input id="fDescricao" type="text" class="form-input" value="${lanc.descricao ?? ''}">
+      </div>
+      ${catSubcatHTML}
+      <button type="button" id="fSalvar" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:8px">Salvar Alterações</button>
+      <div id="fErro" style="color:var(--red);font-size:12px;margin-top:8px;display:none;text-align:center"></div>
+    `
+    bindCatEdit()
+    document.getElementById('fSalvar').addEventListener('click', async () => {
+      const erroEl = document.getElementById('fErro')
+      const { data, descricao, valorRaw, idCateg, idSubcat } = lerCamposComuns()
+      const cat = categorias.find(c => c.id === idCateg)
+      const hasSubs = (cat?.subcategorias ?? []).length > 0
+      const erros = []
+      if (!data)                             erros.push('Data')
+      if (!descricao)                        erros.push('Descrição')
+      if (isNaN(valorRaw) || valorRaw <= 0)  erros.push('Valor')
+      if (isNaN(idCateg))                    erros.push('Categoria')
+      if (hasSubs && !idSubcat)              erros.push('Subcategoria')
+      if (erros.length) {
+        erroEl.textContent = 'Preencha: ' + erros.join(' · ')
+        erroEl.style.display = 'block'
+        return
+      }
+      await salvarEdicao({
+        data, descricao, valor: Math.abs(valorRaw),
+        id_categoria: idCateg, id_subcategoria: idSubcat,
+        competencia: primeiroDiaMes(data),
+      }, true)
+    })
+    return
+  }
+
+  // ── DEMAIS TIPOS (Entrada, Saída, Controle+Reembolso, Invest) ─
+  const ehEntrada = idTipo === 1
+  const mets      = metodos.filter(m => m.id_tipo === idTipo)
+
+  const idMetodoCred = metodos.find(m => m.nome === 'CRÉDITO')?.id
+  const idMetodoPix  = metodos.find(m => m.nome === 'PIX')?.id
+  let contasFiltradas = contas
+  if (idMetodo == idMetodoCred) contasFiltradas = contas.filter(c => c.has_credit)
+  else if (idMetodo == idMetodoPix) contasFiltradas = contas.filter(c => !c.is_investimento)
+
+  body.innerHTML = `
+    <div class="tipo-badge tipo-badge--${slugTipo}">${nomeTipo}</div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Data</label>
+        <input id="fData" type="date" class="form-input" value="${lanc.data ?? ''}">
+      </div>
+      ${!ehEntrada ? `
+      <div class="form-group">
+        <label class="form-label">Método</label>
+        <select id="fMetodo" class="form-select">
+          ${mets.map(m => `<option value="${m.id}" ${m.id == idMetodo ? 'selected' : ''}>${m.nome}</option>`).join('')}
+        </select>
+      </div>
+      ` : ''}
+    </div>
+    <div class="form-row-2">
+      <div class="form-group">
+        <label class="form-label">Conta</label>
+        <select id="fConta" class="form-select">
+          <option value="">Selecionar...</option>
+          ${contasFiltradas.map(c => `<option value="${c.id}" ${c.id == lanc.contas?.id ? 'selected' : ''}>${c.nome}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Valor (R$)</label>
+        <input id="fValor" type="number" class="form-input" placeholder="0.00" step="0.01" min="0" value="${Math.abs(lanc.valor ?? 0)}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Descrição</label>
+      <input id="fDescricao" type="text" class="form-input" value="${lanc.descricao ?? ''}">
+    </div>
+    ${catSubcatHTML}
+    <button type="button" id="fSalvar" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:8px">Salvar Alterações</button>
+    <div id="fErro" style="color:var(--red);font-size:12px;margin-top:8px;display:none;text-align:center"></div>
+  `
+
+  aplicarCorConta(document.getElementById('fConta'), contas)
+  document.getElementById('fConta').addEventListener('change', () => {
+    aplicarCorConta(document.getElementById('fConta'), contas)
+  })
+  bindCatEdit()
+
+  document.getElementById('fSalvar').addEventListener('click', async () => {
+    const erroEl = document.getElementById('fErro')
+    const { data, descricao, valorRaw, idCateg, idSubcat } = lerCamposComuns()
+    const idContaNova  = parseInt(document.getElementById('fConta').value)
+    const idMetodoNovo = ehEntrada ? idMetodo : parseInt(document.getElementById('fMetodo').value)
+    const cat = categorias.find(c => c.id === idCateg)
+    const hasSubs = (cat?.subcategorias ?? []).length > 0
+    const erros = []
+    if (!data)                             erros.push('Data')
+    if (!descricao)                        erros.push('Descrição')
+    if (isNaN(valorRaw) || valorRaw <= 0)  erros.push('Valor')
+    if (!idContaNova)                      erros.push('Conta')
+    if (isNaN(idCateg))                    erros.push('Categoria')
+    if (hasSubs && !idSubcat)              erros.push('Subcategoria')
+    if (erros.length) {
+      erroEl.textContent = 'Preencha: ' + erros.join(' · ')
+      erroEl.style.display = 'block'
+      return
+    }
+    await salvarEdicao({
+      data, descricao, valor: Math.abs(valorRaw),
+      id_metodo: idMetodoNovo, id_conta: idContaNova,
+      id_categoria: idCateg, id_subcategoria: idSubcat,
+      competencia: primeiroDiaMes(data),
+    }, false)
+  })
 }

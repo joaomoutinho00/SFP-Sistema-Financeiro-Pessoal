@@ -6,7 +6,7 @@
 import { supabase } from '../config.js'
 
 // Busca lançamentos com filtros opcionais
-export async function getLancamentos({ competencia, banco, tipo, categoria, busca } = {}) {
+export async function getLancamentos({ competencia, banco, tipo, categoria, subcategoria, busca, dataInicio, dataFim } = {}) {
   let query = supabase
     .from('lancamentos')
     .select(`
@@ -28,8 +28,11 @@ export async function getLancamentos({ competencia, banco, tipo, categoria, busc
     .order('data', { ascending: false })
 
   if (competencia) query = query.eq('competencia', competencia)
-  if (banco)       query = query.eq('id_conta', banco)
-  if (categoria)   query = query.eq('id_categoria', categoria)
+  if (dataInicio)  query = query.gte('data', dataInicio)
+  if (dataFim)     query = query.lte('data', dataFim)
+  if (banco)        query = query.eq('id_conta', banco)
+  if (categoria)    query = query.eq('id_categoria', categoria)
+  if (subcategoria) query = query.eq('id_subcategoria', subcategoria)
 
   const { data, error } = await query
   if (error) throw error
@@ -137,6 +140,18 @@ export async function getMetodosPorTipo(idTipo) {
 
   if (error) throw error
   return data
+}
+
+// Exclui um lançamento
+export async function deletarLancamento(idLancamento) {
+  const { error } = await supabase.from('lancamentos').delete().eq('id_lancamento', idLancamento)
+  if (error) throw error
+}
+
+// Exclui todos os lançamentos de uma transferência (ambos os lados)
+export async function deletarTransferencia(idTransf) {
+  const { error } = await supabase.from('lancamentos').delete().eq('id_transf', idTransf)
+  if (error) throw error
 }
 
 // Insere novo lançamento
