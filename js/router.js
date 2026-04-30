@@ -5,6 +5,7 @@
 
 const TABS = {
   'visao-geral':   () => import('./tabs/visao-geral.js'),
+  'saldos':        () => import('./tabs/saldos.js'),
   'transacoes':    () => import('./tabs/transacoes.js'),
   'parcelamentos': () => import('./tabs/parcelamentos.js'),
   'assinaturas':   () => import('./tabs/assinaturas.js'),
