@@ -308,9 +308,11 @@ tbody td {
 .badge-wise   { background: #16a34a; color: #ffffff; }
 
 /* Valor colorido */
-.valor-entrada { color: var(--green); font-weight: 600; }
-.valor-saida   { color: var(--red);   font-weight: 600; }
-.valor-transf  { color: var(--blue);  font-weight: 600; }
+.valor-entrada { color: var(--green);      font-weight: 600; }
+.valor-saida   { color: var(--red);        font-weight: 600; }
+.valor-transf  { color: var(--blue);       font-weight: 600; }
+.valor-fatura  { color: var(--amber);      font-weight: 600; }
+.valor-neutro  { color: var(--text-muted); font-weight: 600; }
 
 /* ============================================================
    FILTROS
@@ -341,6 +343,13 @@ tbody td {
 .filter-pill:hover {
   border-color: var(--blue);
   color: var(--text);
+}
+
+.filter-pill.active {
+  background: var(--text);
+  border-color: var(--text);
+  color: #ffffff;
+  font-weight: 600;
 }
 
 .filter-pill select {
@@ -748,3 +757,322 @@ tbody td {
 .text-sm    { font-size: 13px; }
 .font-600   { font-weight: 600; }
 .text-right { text-align: right; }
+
+/* Cabeçalhos ordenáveis */
+.th-sort {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.th-sort:hover {
+  color: var(--text);
+}
+
+.th-sort--active {
+  color: var(--text);
+}
+
+.sort-icon {
+  font-size: 10px;
+  opacity: 0.3;
+  margin-left: 3px;
+}
+
+.th-sort--active .sort-icon {
+  opacity: 1;
+  color: var(--blue);
+}
+
+/* ============================================================
+   PERIOD POPOVER
+   ============================================================ */
+.period-popover {
+  position: fixed;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+  z-index: 500;
+  width: 740px;
+  overflow: hidden;
+}
+
+.pop-inner {
+  display: flex;
+}
+
+.pop-quick {
+  width: 168px;
+  padding: 10px 0;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.pop-quick-item {
+  padding: 9px 18px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.pop-quick-item:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.pop-quick-item.active {
+  color: var(--blue);
+  font-weight: 600;
+  background: #eff6ff;
+}
+
+.pop-cals {
+  flex: 1;
+  padding: 16px 20px;
+}
+
+.pop-cals-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+.pop-mode-btn {
+  padding: 5px 14px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  font-family: 'Sora', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.pop-mode-btn.active {
+  background: var(--card);
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+
+.month-btn {
+  padding: 8px 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  font-family: 'Sora', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+}
+
+.month-btn:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.month-btn.active {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pop-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.pop-footer-label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.pop-footer-label strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Calendário */
+.cal-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.cal-th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 4px 0 8px;
+}
+
+.cal-day {
+  text-align: center;
+  padding: 5px 2px;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background var(--transition), color var(--transition);
+  color: var(--text);
+  width: 34px;
+  height: 30px;
+}
+
+.cal-day:hover:not(.cal-day--out):not(.cal-day--sel) {
+  background: var(--bg);
+}
+
+.cal-day--out {
+  color: var(--text-light);
+  cursor: default;
+}
+
+.cal-day--sel {
+  background: var(--blue) !important;
+  color: #fff !important;
+  font-weight: 600;
+  border-radius: 6px;
+}
+
+.cal-day--range {
+  background: #dbeafe;
+  color: var(--blue);
+  border-radius: 0;
+}
+
+/* ============================================================
+   ROW ACTIONS (Editar / Excluir na tabela)
+   ============================================================ */
+.row-actions-cell {
+  width: 68px;
+  padding: 0 8px 0 0 !important;
+}
+
+.row-actions {
+  display: none;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+tr:hover .row-actions {
+  display: flex;
+}
+
+.btn-row-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background var(--transition), color var(--transition);
+  flex-shrink: 0;
+}
+
+.btn-row-action:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+.btn-row-delete:hover {
+  background: #fee2e2;
+  color: var(--red);
+}
+
+/* ============================================================
+   MODAL DE CONFIRMAÇÃO
+   ============================================================ */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.confirm-modal {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  padding: 28px;
+  max-width: 420px;
+  width: 90%;
+}
+
+.confirm-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.confirm-modal-body {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.btn-danger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--red);
+  color: #ffffff;
+  font-family: 'Sora', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity var(--transition);
+}
+
+.btn-danger:hover  { opacity: 0.85; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ============================================================
+   BADGE DE TIPO (formulário de edição)
+   ============================================================ */
+.tipo-badge {
+  display: inline-block;
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 18px;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.tipo-badge--entrada  { background: #dcfce7; color: #15803d;    border-color: #86efac; }
+.tipo-badge--saida    { background: #fee2e2; color: var(--red);  border-color: #fca5a5; }
+.tipo-badge--transf   { background: #eff6ff; color: var(--blue); border-color: #bfdbfe; }
+.tipo-badge--controle { background: #fffbeb; color: var(--amber);border-color: #fde68a; }
+.tipo-badge--invest   { background: #f5f3ff; color: #7c3aed;     border-color: #ddd6fe; }
