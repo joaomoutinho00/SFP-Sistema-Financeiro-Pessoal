@@ -30,6 +30,7 @@ const corCat = nome => COR_CAT[nome?.toUpperCase()] ?? '#6b7280'
 let competencia  = competenciaAtual()
 let chartDonut   = null
 let _container   = null
+let tipoAtivo    = 2   // 1 = Entradas, 2 = Saídas
 const expandidos = new Set()
 
 const $ = id => _container.querySelector(`#${id}`)
@@ -53,10 +54,16 @@ function renderShell() {
         <div style="position:relative;width:160px;height:160px;flex-shrink:0">
           <canvas id="chartDonut"></canvas>
         </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="period-btn" id="btnAnterior">&#8249;</button>
-          <span id="periodLabel" style="font-size:13px;font-weight:600;color:var(--text);min-width:160px;text-align:center;white-space:nowrap">${formatCompetencia(competencia)}</span>
-          <button class="period-btn" id="btnProximo">&#8250;</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="period-btn" id="btnAnterior">&#8249;</button>
+            <span id="periodLabel" style="font-size:13px;font-weight:600;color:var(--text);min-width:160px;text-align:center;white-space:nowrap">${formatCompetencia(competencia)}</span>
+            <button class="period-btn" id="btnProximo">&#8250;</button>
+          </div>
+          <div style="display:flex;gap:4px;background:var(--bg);border-radius:var(--radius-sm);padding:3px">
+            <button id="btnTipoSaida"  class="pop-mode-btn active" data-tipo="2">Saídas</button>
+            <button id="btnTipoEntrada" class="pop-mode-btn"       data-tipo="1">Entradas</button>
+          </div>
         </div>
       </div>
     </div>
@@ -79,6 +86,22 @@ function bindPeriodo() {
   $('btnProximo').addEventListener('click', async () => {
     competencia = addMeses(competencia, 1)
     $('periodLabel').textContent = formatCompetencia(competencia)
+    await carregarDados()
+  })
+  $('btnTipoSaida').addEventListener('click', async () => {
+    if (tipoAtivo === 2) return
+    tipoAtivo = 2
+    expandidos.clear()
+    $('btnTipoSaida').classList.add('active')
+    $('btnTipoEntrada').classList.remove('active')
+    await carregarDados()
+  })
+  $('btnTipoEntrada').addEventListener('click', async () => {
+    if (tipoAtivo === 1) return
+    tipoAtivo = 1
+    expandidos.clear()
+    $('btnTipoEntrada').classList.add('active')
+    $('btnTipoSaida').classList.remove('active')
     await carregarDados()
   })
 }
@@ -116,7 +139,7 @@ async function carregarDados() {
     if (error) throw error
 
     const filtrados = lancamentos.filter(l =>
-      (l.metodos?.id_tipo === 1 || l.metodos?.id_tipo === 2) && l.categorias?.id_tipo !== 4
+      l.metodos?.id_tipo === tipoAtivo && l.categorias?.id_tipo !== 4
     )
 
     const catMap = {}
@@ -149,7 +172,7 @@ async function carregarDados() {
 
 function renderResumo(total) {
   $('totalValor').textContent = formatBRL(total)
-  $('totalLabel').textContent = `movimentado em ${formatCompetencia(competencia)}`
+  $('totalLabel').textContent = `${tipoAtivo === 2 ? 'gasto' : 'recebido'} em ${formatCompetencia(competencia)}`
 }
 
 function renderDonut(cats) {
