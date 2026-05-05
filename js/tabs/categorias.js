@@ -21,17 +21,20 @@ const COR_CAT = {
   'VIAGENS':           '#0ea5e9',
   'CONHECIMENTO':      '#6366f1',
   'PRESENTES/DOAÇÕES': '#fb7185',
-  'EXTRA':             '#a3e635',
+  'SALÁRIO':           '#a3e635',
+  'EXTRA':             '#2563eb',
   'OUTROS':            '#6b7280',
 }
 
 const corCat = nome => COR_CAT[nome?.toUpperCase()] ?? '#6b7280'
 
-let competencia  = competenciaAtual()
-let chartDonut   = null
-let _container   = null
-let tipoAtivo    = 2   // 1 = Entradas, 2 = Saídas
-const expandidos = new Set()
+let competencia          = competenciaAtual()
+let chartDonut           = null
+let _container           = null
+let tipoAtivo            = 2   // 1 = Entradas, 2 = Saídas
+let lancamentosFiltrados = []
+const expandidos    = new Set()
+const expandidosSub = new Set()
 
 const $ = id => _container.querySelector(`#${id}`)
 
@@ -108,6 +111,31 @@ function bindPeriodo() {
 
 function bindCategorias() {
   $('listaCategorias').addEventListener('click', e => {
+    // Clique em subcategoria → expande lançamentos
+    const subcatRow = e.target.closest('.subcat-row')
+    if (subcatRow) {
+      const wrap  = subcatRow.parentElement
+      const cat   = wrap.dataset.cat
+      const sub   = wrap.dataset.sub
+      const key   = `${cat}||${sub}`
+      const panel = wrap.querySelector('.lancs-panel')
+      const arrow = subcatRow.querySelector('.subcat-arrow')
+      if (!panel) return
+
+      if (expandidosSub.has(key)) {
+        expandidosSub.delete(key)
+        panel.style.display = 'none'
+        if (arrow) arrow.textContent = '˅'
+      } else {
+        expandidosSub.add(key)
+        panel.innerHTML = renderLancamentosSubcat(cat, sub)
+        panel.style.display = 'block'
+        if (arrow) arrow.textContent = '˄'
+      }
+      return
+    }
+
+    // Clique em categoria → expande subcategorias
     const header = e.target.closest('.cat-header')
     if (!header) return
     const catDiv = header.parentElement
@@ -138,12 +166,13 @@ async function carregarDados() {
 
     if (error) throw error
 
-    const filtrados = lancamentos.filter(l =>
+    lancamentosFiltrados = lancamentos.filter(l =>
       l.metodos?.id_tipo === tipoAtivo && l.categorias?.id_tipo !== 4
     )
+    expandidosSub.clear()
 
     const catMap = {}
-    for (const l of filtrados) {
+    for (const l of lancamentosFiltrados) {
       const cat = l.categorias?.nome || 'OUTROS'
       if (!catMap[cat]) catMap[cat] = { total: 0, count: 0, subcats: {} }
       catMap[cat].total += Math.abs(l.valor)
@@ -242,28 +271,56 @@ function renderCategorias(cats) {
           </span>
         </div>
         <div class="subcats-panel" style="display:${isExp ? 'block' : 'none'}">
-          ${temSub ? renderSubcats(data.subcats, data.total, cor) : ''}
+          ${temSub ? renderSubcats(data.subcats, data.total, cor, cat) : ''}
         </div>
       </div>
     `
   }).join('')
 }
 
-function renderSubcats(subcats, catTotal, cor) {
+function renderSubcats(subcats, catTotal, cor, catNome) {
   const entries = Object.entries(subcats).sort((a, b) => b[1].total - a[1].total)
 
   return entries.map(([sub, data], i) => {
     const pct    = (data.total / catTotal * 100).toFixed(1)
     const isLast = i === entries.length - 1
+    const key    = `${catNome}||${sub}`
+    const isExp  = expandidosSub.has(key)
+
     return `
-      <div style="display:grid;grid-template-columns:3px auto 1fr auto minmax(80px,180px);align-items:center;gap:12px;padding:8px 0 8px 40px;${!isLast ? 'border-bottom:1px solid var(--border)' : ''}">
-        <div style="width:3px;height:20px;background:${cor};border-radius:2px;opacity:0.4"></div>
-        <span style="font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap">${data.count}×</span>
-        <span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</span>
-        <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">${formatBRL(data.total)}</span>
-        <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:${cor};border-radius:2px;opacity:0.55;transition:width 0.4s ease"></div>
+      <div data-cat="${catNome.replace(/"/g,'&quot;')}" data-sub="${sub.replace(/"/g,'&quot;')}">
+        <div class="subcat-row" style="display:grid;grid-template-columns:3px auto 1fr auto minmax(80px,180px) 20px;align-items:center;gap:12px;padding:8px 0 8px 40px;cursor:pointer;${!isLast || isExp ? 'border-bottom:1px solid var(--border)' : ''}">
+          <div style="width:3px;height:20px;background:${cor};border-radius:2px;opacity:0.4"></div>
+          <span style="font-size:11px;color:var(--text-muted);font-weight:500;white-space:nowrap">${data.count}×</span>
+          <span style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${sub}</span>
+          <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">${formatBRL(data.total)}</span>
+          <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${cor};border-radius:2px;opacity:0.55;transition:width 0.4s ease"></div>
+          </div>
+          <span class="subcat-arrow" style="font-size:12px;color:var(--text-muted);text-align:center;line-height:1;user-select:none">˅</span>
         </div>
+        <div class="lancs-panel" style="display:none"></div>
+      </div>
+    `
+  }).join('')
+}
+
+function renderLancamentosSubcat(catNome, subNome) {
+  const lancs = lancamentosFiltrados
+    .filter(l => (l.categorias?.nome || 'OUTROS') === catNome && l.subcategorias?.nome === subNome)
+    .sort((a, b) => (b.data ?? '').localeCompare(a.data ?? ''))
+
+  if (!lancs.length) return `<p style="color:var(--text-muted);font-size:12px;padding:8px 0 8px 56px">Nenhum lançamento.</p>`
+
+  return lancs.map((l, i) => {
+    const dataStr = l.data
+      ? new Date(l.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+      : '—'
+    return `
+      <div style="display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:7px 0 7px 56px;${i < lancs.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+        <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${dataStr}</span>
+        <span style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.descricao || '—'}</span>
+        <span style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap">${formatBRL(Math.abs(l.valor))}</span>
       </div>
     `
   }).join('')
