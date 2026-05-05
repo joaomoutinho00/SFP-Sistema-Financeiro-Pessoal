@@ -39,6 +39,24 @@ function primeiroDiaMes(dataStr) {
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0]
 }
 
+// Calcula competência para lançamentos de crédito respeitando o dia de fechamento da conta.
+// dia_fechamento = 31 → fecha no último dia do mês.
+// Se o dia do lançamento >= dia de fechamento real → competência = mês seguinte.
+function competenciaParaCredito(dataStr, idConta, contas) {
+  const conta = contas.find(c => c.id === idConta)
+  const diaFech = conta?.dia_fechamento
+  if (!diaFech) return primeiroDiaMes(dataStr)
+
+  const d        = new Date(dataStr + 'T12:00:00')
+  const lastDay  = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  const diaReal  = diaFech >= 29 ? lastDay : diaFech
+
+  if (d.getDate() >= diaReal) {
+    return new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().split('T')[0]
+  }
+  return primeiroDiaMes(dataStr)
+}
+
 function buildSubcatOptions(catId, categorias, selectedSubId) {
   const cat  = categorias.find(c => c.id == catId)
   const subs = cat?.subcategorias ?? []
@@ -59,11 +77,13 @@ function buildContaOptions(contas, idMetodoSel, idMetodoCred, idMetodoPix, selec
 let _cache      = null
 let _drawerInit = false
 
+export function invalidarCache() { _cache = null }
+
 async function carregarCache() {
   if (_cache) return _cache
   const [r1, r2, r3] = await Promise.all([
     supabase.from('metodos').select('id, nome, id_tipo').order('id'),
-    supabase.from('contas').select('id, nome, is_investimento, has_credit').order('nome'),
+    supabase.from('contas').select('id, nome, is_investimento, has_credit, dia_fechamento, dias_ate_vencimento').order('nome'),
     supabase.from('categorias').select('id, nome, id_tipo, subcategorias(id, nome)').order('nome'),
   ])
   _cache = {
@@ -737,7 +757,9 @@ export async function abrirNovoLancamento() {
     btn.textContent = 'Salvando...'
 
     try {
-      const competencia = primeiroDiaMes(data)
+      const competencia = (idMetodo === idMetodoCred || idMetodo === idMetodoReembolso)
+        ? competenciaParaCredito(data, idConta, contas)
+        : primeiroDiaMes(data)
 
       // CRÉDITO e REEMBOLSO CARTÃO vinculam-se à fatura aberta da conta/mês
       let idFatura = null
@@ -1014,8 +1036,10 @@ export async function abrirEditarLancamento(lanc) {
       erroEl.style.display = 'block'
       return
     }
-    const competencia = primeiroDiaMes(data)
     const vinculaFatura = idMetodoNovo === idMetodoCred || idMetodoNovo === idMetodoReembolso
+    const competencia   = vinculaFatura
+      ? competenciaParaCredito(data, idContaNova, contas)
+      : primeiroDiaMes(data)
     const idFatura = vinculaFatura ? await resolverFatura(idContaNova, competencia) : null
     await salvarEdicao({
       data, descricao, valor: Math.abs(valorRaw),
