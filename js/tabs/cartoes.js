@@ -208,6 +208,13 @@ function renderConteudo(conteudo, { contas, meses, faturaPorContaMes, faturas })
     </div>
   `
 
+  conteudo.querySelector('#listaFaturas')?.addEventListener('click', e => {
+    const row = e.target.closest('[data-fatura-id]')
+    if (!row) return
+    const fatura = faturas.find(f => f.id === Number(row.dataset.faturaId))
+    if (fatura) abrirFatura(fatura)
+  })
+
   // Gráfico de barras por banco × mês
   chartFatura = new Chart(document.getElementById('chartFatura'), {
     type: 'bar',
@@ -266,13 +273,13 @@ function renderListaFaturas(faturas) {
   `
 
   const linhas = faturas.map((f, i) => {
-    const isPaga  = f.status === 'PAGA'
-    const badge   = isPaga
+    const isPaga = f.status === 'PAGA'
+    const badge  = isPaga
       ? `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d">Paga</span>`
       : `<span style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fffbeb;color:var(--amber)">Em aberto</span>`
 
     return `
-      <div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:16px;align-items:center;padding:11px 0;${i < faturas.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+      <div data-fatura-id="${f.id}" style="display:grid;grid-template-columns:auto 1fr auto auto;gap:16px;align-items:center;padding:11px 0;cursor:pointer;${i < faturas.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
         ${badgeBanco(f.conta?.nome)}
         <span style="font-size:13px;font-weight:500;color:var(--text)">${formatCompetencia(f.competencia)}</span>
         <span style="font-size:14px;font-weight:700;color:var(--amber);text-align:right;white-space:nowrap">${formatBRL(f.total)}</span>
@@ -281,7 +288,77 @@ function renderListaFaturas(faturas) {
     `
   }).join('')
 
-  return cabecalho + linhas
+  return `<div id="listaFaturas">${cabecalho}${linhas}</div>`
+}
+
+async function abrirFatura(fatura) {
+  const isPaga = fatura.status === 'PAGA'
+  const badge  = isPaga
+    ? `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#dcfce7;color:#15803d">Paga</span>`
+    : `<span style="display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;background:#fffbeb;color:var(--amber)">Em aberto</span>`
+
+  const el = document.createElement('div')
+  el.className = 'confirm-overlay'
+  el.innerHTML = `
+    <div class="confirm-modal" style="max-width:580px;width:100%;max-height:80vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            ${badgeBanco(fatura.conta?.nome)}
+            <span style="font-size:15px;font-weight:700;color:var(--text)">${formatCompetencia(fatura.competencia)}</span>
+            ${badge}
+          </div>
+          <div style="font-size:22px;font-weight:700;color:var(--amber)">${formatBRL(fatura.total)}</div>
+        </div>
+        <button class="btn btn-outline" id="fecharFaturaModal" style="flex-shrink:0">Fechar</button>
+      </div>
+      <div id="faturaLancs" style="overflow-y:auto;flex:1">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  `
+  document.body.appendChild(el)
+  el.querySelector('#fecharFaturaModal').addEventListener('click', () => el.remove())
+  el.addEventListener('click', e => { if (e.target === el) el.remove() })
+
+  try {
+    const { data, error } = await supabase
+      .from('lancamentos')
+      .select('id_lancamento, data, descricao, valor, metodos(nome), categorias(nome), subcategorias(nome)')
+      .eq('id_fatura', fatura.id)
+      .order('data', { ascending: false })
+    if (error) throw error
+
+    const div = el.querySelector('#faturaLancs')
+    if (!data?.length) {
+      div.innerHTML = `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:32px 0">Nenhum lançamento nesta fatura.</p>`
+      return
+    }
+
+    div.innerHTML = data.map((l, i) => {
+      const dataStr = l.data
+        ? new Date(l.data + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+        : '—'
+      const sub     = [l.categorias?.nome, l.subcategorias?.nome].filter(Boolean).join(' · ')
+      const metodo  = l.metodos?.nome ?? ''
+      const isReemb = metodo === 'REEMBOLSO CARTÃO'
+      const valorCor = isReemb ? 'var(--green)' : 'var(--amber)'
+      const valorStr = isReemb ? `+${formatBRL(Math.abs(l.valor))}` : `−${formatBRL(Math.abs(l.valor))}`
+
+      return `
+        <div style="display:grid;grid-template-columns:36px 1fr auto;gap:12px;align-items:center;padding:10px 0;${i < data.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+          <span style="font-size:12px;color:var(--text-muted);white-space:nowrap">${dataStr}</span>
+          <div>
+            <div style="font-size:13px;font-weight:500;color:var(--text)">${l.descricao || '—'}</div>
+            ${sub ? `<div style="font-size:11px;color:var(--text-muted);margin-top:1px">${sub}</div>` : ''}
+          </div>
+          <span style="font-size:13px;font-weight:700;color:${valorCor};white-space:nowrap">${valorStr}</span>
+        </div>
+      `
+    }).join('')
+  } catch (err) {
+    el.querySelector('#faturaLancs').innerHTML = `<p style="color:var(--red);font-size:13px;padding:16px 0">Erro ao carregar: ${err.message}</p>`
+  }
 }
 
 function buildCartaoCard(conta, faturaAtual) {
