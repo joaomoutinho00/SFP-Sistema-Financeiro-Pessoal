@@ -328,6 +328,83 @@ function exportarFaturaCSV(fatura, lancamentos) {
   URL.revokeObjectURL(url)
 }
 
+function exportarFaturaPDF(fatura, lancamentos) {
+  const cartao   = fatura.conta?.nome ?? '—'
+  const compet   = formatCompetencia(fatura.competencia)
+  const status   = fatura.status === 'PAGA' ? 'Paga' : 'Em aberto'
+  const total    = formatBRL(fatura.total)
+  const cor      = corBanco(cartao)
+
+  const linhas = lancamentos.map(l => {
+    const data    = l.data ? new Date(l.data + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
+    const isReemb = l.metodos?.nome === 'REEMBOLSO CARTÃO'
+    const valor   = isReemb ? `+${formatBRL(Math.abs(l.valor))}` : `−${formatBRL(Math.abs(l.valor))}`
+    const corVal  = isReemb ? '#16a34a' : '#d97706'
+    const cat     = [l.categorias?.nome, l.subcategorias?.nome].filter(Boolean).join(' · ') || '—'
+    return `
+      <tr>
+        <td>${data}</td>
+        <td>${l.descricao || '—'}</td>
+        <td style="color:#6b7280">${cat}</td>
+        <td style="text-align:right;font-weight:600;color:${corVal}">${valor}</td>
+      </tr>`
+  }).join('')
+
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Fatura ${cartao} — ${compet}</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color:#111; padding:32px; font-size:13px; }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; padding-bottom:20px; border-bottom:2px solid ${cor}; }
+    .badge { display:inline-block; background:${cor}; color:#fff; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; margin-bottom:6px; }
+    .compet { font-size:18px; font-weight:700; color:#111; margin-bottom:4px; }
+    .status { font-size:12px; color:#6b7280; }
+    .total-label { font-size:11px; color:#6b7280; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px; }
+    .total-val { font-size:28px; font-weight:700; color:${cor}; }
+    table { width:100%; border-collapse:collapse; }
+    th { font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:0.4px; padding:8px 10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    td { padding:9px 10px; border-bottom:1px solid #f3f4f6; font-size:13px; }
+    tr:last-child td { border-bottom:none; }
+    .footer { margin-top:24px; font-size:11px; color:#9ca3af; text-align:right; }
+    @media print { body { padding:20px; } @page { margin:1.5cm; } }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="badge">${cartao}</div>
+      <div class="compet">${compet}</div>
+      <div class="status">${status}</div>
+    </div>
+    <div style="text-align:right">
+      <div class="total-label">Total da fatura</div>
+      <div class="total-val">${total}</div>
+    </div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Data</th>
+        <th>Descrição</th>
+        <th>Categoria</th>
+        <th style="text-align:right">Valor</th>
+      </tr>
+    </thead>
+    <tbody>${linhas}</tbody>
+  </table>
+  <div class="footer">${lancamentos.length} lançamento${lancamentos.length !== 1 ? 's' : ''}</div>
+  <script>window.onload = () => { window.print(); }<\/script>
+</body>
+</html>`
+
+  const w = window.open('', '_blank')
+  w.document.write(html)
+  w.document.close()
+}
+
 async function abrirFatura(fatura) {
   const isPaga = fatura.status === 'PAGA'
   const badge  = isPaga
@@ -356,6 +433,10 @@ async function abrirFatura(fatura) {
             <button id="exportCsvOpt" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               Excel / CSV
+            </button>
+            <button id="exportPdfOpt" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left;border-top:1px solid var(--border)" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              PDF
             </button>
           </div>
           <button class="btn btn-outline" id="fecharFaturaModal">Fechar</button>
@@ -396,6 +477,10 @@ async function abrirFatura(fatura) {
     el.querySelector('#exportCsvOpt').addEventListener('click', () => {
       menu.style.display = 'none'
       exportarFaturaCSV(fatura, data)
+    })
+    el.querySelector('#exportPdfOpt').addEventListener('click', () => {
+      menu.style.display = 'none'
+      exportarFaturaPDF(fatura, data)
     })
     el.addEventListener('click', () => { menu.style.display = 'none' })
 
