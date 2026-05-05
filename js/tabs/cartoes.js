@@ -20,6 +20,7 @@ export async function render(container) {
   container.innerHTML = renderShell()
   bindEventos(container)
   await carregarDados(container)
+  window.addEventListener('sfp:lancamento-salvo', () => carregarDados(container))
 }
 
 function renderShell() {
