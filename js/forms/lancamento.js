@@ -49,7 +49,7 @@ function competenciaParaCredito(dataStr, idConta, contas) {
 
   const d        = new Date(dataStr + 'T12:00:00')
   const lastDay  = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-  const diaReal  = diaFech >= 29 ? lastDay : diaFech
+  const diaReal  = diaFech === 31 ? lastDay : Math.min(diaFech, lastDay)
 
   if (d.getDate() >= diaReal) {
     return new Date(d.getFullYear(), d.getMonth() + 1, 1).toISOString().split('T')[0]

@@ -441,7 +441,7 @@ function calcDatasCartao(conta) {
   if (!conta.dia_fechamento) return null
   const [ano, mes] = competencia.split('-').map(Number)
   const lastDay    = new Date(ano, mes, 0).getDate()
-  const diaFech    = conta.dia_fechamento >= 29 ? lastDay : conta.dia_fechamento
+  const diaFech    = conta.dia_fechamento === 31 ? lastDay : Math.min(conta.dia_fechamento, lastDay)
   const fechamento = `${String(diaFech).padStart(2, '0')}/${String(mes).padStart(2, '0')}`
 
   let vencimento = null
