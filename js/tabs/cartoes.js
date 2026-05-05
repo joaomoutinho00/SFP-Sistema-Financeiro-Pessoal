@@ -300,7 +300,7 @@ async function abrirFatura(fatura) {
   const el = document.createElement('div')
   el.className = 'confirm-overlay'
   el.innerHTML = `
-    <div class="confirm-modal" style="max-width:580px;width:100%;max-height:80vh;display:flex;flex-direction:column">
+    <div class="confirm-modal" style="max-width:720px;width:100%;max-height:80vh;display:flex;flex-direction:column">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px;flex-shrink:0">
         <div>
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
@@ -318,8 +318,10 @@ async function abrirFatura(fatura) {
     </div>
   `
   document.body.appendChild(el)
-  el.querySelector('#fecharFaturaModal').addEventListener('click', () => el.remove())
-  el.addEventListener('click', e => { if (e.target === el) el.remove() })
+  document.body.style.overflow = 'hidden'
+  const fechar = () => { el.remove(); document.body.style.overflow = '' }
+  el.querySelector('#fecharFaturaModal').addEventListener('click', fechar)
+  el.addEventListener('click', e => { if (e.target === el) fechar() })
 
   try {
     const { data, error } = await supabase
