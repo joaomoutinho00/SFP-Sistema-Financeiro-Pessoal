@@ -328,7 +328,7 @@ function exportarFaturaCSV(fatura, lancamentos) {
   URL.revokeObjectURL(url)
 }
 
-function exportarFaturaPDF(fatura, lancamentos) {
+function exportarFaturaPDF(fatura, lancamentos, autoPrint = true) {
   const cartao   = fatura.conta?.nome ?? '—'
   const compet   = formatCompetencia(fatura.competencia)
   const status   = fatura.status === 'PAGA' ? 'Paga' : 'Em aberto'
@@ -396,7 +396,7 @@ function exportarFaturaPDF(fatura, lancamentos) {
     <tbody>${linhas}</tbody>
   </table>
   <div class="footer">${lancamentos.length} lançamento${lancamentos.length !== 1 ? 's' : ''}</div>
-  <script>window.onload = () => { window.print(); }<\/script>
+  ${autoPrint ? `<script>window.onload = () => { window.print(); }<\/script>` : ''}
 </body>
 </html>`
 
@@ -425,6 +425,9 @@ async function abrirFatura(fatura) {
           <div style="font-size:22px;font-weight:700;color:var(--amber)">${formatBRL(fatura.total)}</div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;position:relative">
+          <button class="btn btn-outline" id="visualizarBtn" disabled title="Abrir visualização completa" style="display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
           <button class="btn btn-outline" id="exportarBtn" disabled style="display:flex;align-items:center;gap:6px">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Exportar
@@ -466,6 +469,10 @@ async function abrirFatura(fatura) {
       div.innerHTML = `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:32px 0">Nenhum lançamento nesta fatura.</p>`
       return
     }
+
+    const btnViz  = el.querySelector('#visualizarBtn')
+    btnViz.disabled = false
+    btnViz.addEventListener('click', () => exportarFaturaPDF(fatura, data, false))
 
     const btnExp  = el.querySelector('#exportarBtn')
     const menu    = el.querySelector('#exportarMenu')
