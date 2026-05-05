@@ -4,6 +4,7 @@
 
 import { supabase } from '../config.js'
 import { formatBRL, formatCompetencia, competenciaAtual, addMeses, badgeBanco } from '../services/formatters.js'
+import { invalidarCache } from '../forms/lancamento.js'
 
 const COR_BANCO = {
   'SAFRA':  '#1e3a5f',
@@ -73,7 +74,7 @@ async function buscarDados() {
   // Contas com crédito
   const { data: contas, error: errContas } = await supabase
     .from('contas')
-    .select('id, nome, has_credit')
+    .select('id, nome, has_credit, dia_fechamento, dias_ate_vencimento')
     .eq('has_credit', true)
     .order('nome')
   if (errContas) throw errContas
@@ -213,6 +214,13 @@ function renderConteudo(conteudo, { contas, meses, faturaPorContaMes, faturas })
     if (!row) return
     const fatura = faturas.find(f => f.id === Number(row.dataset.faturaId))
     if (fatura) abrirFatura(fatura)
+  })
+
+  conteudo.addEventListener('click', e => {
+    const btn = e.target.closest('.btn-config-cartao')
+    if (!btn) return
+    const conta = contas.find(c => c.id === Number(btn.dataset.contaId))
+    if (conta) abrirConfigCartao(conta, () => carregarDados(conteudo.parentElement))
   })
 
   // Gráfico de barras por banco × mês
@@ -363,12 +371,94 @@ async function abrirFatura(fatura) {
   }
 }
 
-function buildCartaoCard(conta, faturaAtual) {
+async function abrirConfigCartao(conta, onSalvo) {
   const cor = corBanco(conta.nome)
+  const el  = document.createElement('div')
+  el.className = 'confirm-overlay'
+  el.innerHTML = `
+    <div class="confirm-modal" style="max-width:400px;width:100%">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+        <div style="width:36px;height:36px;border-radius:8px;background:${cor};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700">
+          ${conta.nome?.slice(0, 2).toUpperCase()}
+        </div>
+        <div style="font-size:15px;font-weight:700;color:var(--text)">${conta.nome}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:20px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">
+            Dia de fechamento <span style="font-weight:400;font-size:11px">(31 = último dia do mês)</span>
+          </label>
+          <input id="cfgDiaFech" type="number" min="1" max="31" class="form-input" placeholder="Ex: 31" value="${conta.dia_fechamento ?? ''}">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.4px">
+            Dias até o vencimento
+          </label>
+          <input id="cfgDiasVenc" type="number" min="1" max="40" class="form-input" placeholder="Ex: 7" value="${conta.dias_ate_vencimento ?? ''}">
+        </div>
+      </div>
+      <div id="cfgErro" style="color:var(--red);font-size:12px;margin-bottom:10px;display:none"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-outline" id="cfgCancelar">Cancelar</button>
+        <button class="btn btn-primary" id="cfgSalvar">Salvar</button>
+      </div>
+    </div>
+  `
+  document.body.appendChild(el)
+  document.body.style.overflow = 'hidden'
+  const fechar = () => { el.remove(); document.body.style.overflow = '' }
+
+  el.querySelector('#cfgCancelar').addEventListener('click', fechar)
+  el.addEventListener('click', e => { if (e.target === el) fechar() })
+
+  el.querySelector('#cfgSalvar').addEventListener('click', async () => {
+    const diaFech  = parseInt(el.querySelector('#cfgDiaFech').value)  || null
+    const diasVenc = parseInt(el.querySelector('#cfgDiasVenc').value) || null
+    const erroEl   = el.querySelector('#cfgErro')
+    if (diaFech && (diaFech < 1 || diaFech > 31)) {
+      erroEl.textContent = 'Dia de fechamento deve ser entre 1 e 31.'
+      erroEl.style.display = 'block'
+      return
+    }
+    const btn = el.querySelector('#cfgSalvar')
+    btn.disabled = true; btn.textContent = 'Salvando...'
+    const { error } = await supabase.from('contas')
+      .update({ dia_fechamento: diaFech, dias_ate_vencimento: diasVenc })
+      .eq('id', conta.id)
+    if (error) {
+      erroEl.textContent = 'Erro ao salvar: ' + error.message
+      erroEl.style.display = 'block'
+      btn.disabled = false; btn.textContent = 'Salvar'
+      return
+    }
+    invalidarCache()
+    fechar()
+    onSalvo?.()
+  })
+}
+
+function calcDatasCartao(conta) {
+  if (!conta.dia_fechamento) return null
+  const [ano, mes] = competencia.split('-').map(Number)
+  const lastDay    = new Date(ano, mes, 0).getDate()
+  const diaFech    = conta.dia_fechamento >= 29 ? lastDay : conta.dia_fechamento
+  const fechamento = `${String(diaFech).padStart(2, '0')}/${String(mes).padStart(2, '0')}`
+
+  let vencimento = null
+  if (conta.dias_ate_vencimento) {
+    const dataFech = new Date(ano, mes - 1, diaFech)
+    dataFech.setDate(dataFech.getDate() + conta.dias_ate_vencimento)
+    vencimento = dataFech.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+  }
+  return { fechamento, vencimento }
+}
+
+function buildCartaoCard(conta, faturaAtual) {
+  const cor   = corBanco(conta.nome)
+  const datas = calcDatasCartao(conta)
   return `
     <div class="card" style="padding:20px;border-top:3px solid ${cor}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <!-- Placeholder para logo do banco -->
         <div style="width:48px;height:48px;border-radius:10px;background:${cor};display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;letter-spacing:0.5px;flex-shrink:0">
           ${conta.nome?.slice(0, 2).toUpperCase() ?? '??'}
         </div>
@@ -377,8 +467,25 @@ function buildCartaoCard(conta, faturaAtual) {
           <div style="font-size:18px;font-weight:700;color:var(--amber)">${formatBRL(faturaAtual)}</div>
         </div>
       </div>
-      <div style="font-size:13px;font-weight:600;color:var(--text)">${conta.nome}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${formatCompetencia(competencia)}</div>
+      <div style="display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${conta.nome}</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${formatCompetencia(competencia)}</div>
+          ${datas ? `
+            <div style="margin-top:8px;display:flex;gap:12px">
+              <div>
+                <div style="font-size:10px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Fecha</div>
+                <div style="font-size:12px;font-weight:600;color:var(--text)">${datas.fechamento}</div>
+              </div>
+              ${datas.vencimento ? `
+              <div>
+                <div style="font-size:10px;color:var(--text-muted);font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Vence</div>
+                <div style="font-size:12px;font-weight:600;color:var(--red)">${datas.vencimento}</div>
+              </div>` : ''}
+            </div>` : ''}
+        </div>
+        <button class="btn-config-cartao" data-conta-id="${conta.id}" data-dia-fech="${conta.dia_fechamento ?? ''}" data-dias-venc="${conta.dias_ate_vencimento ?? ''}" title="Configurar fechamento" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;padding:4px;line-height:1">⚙</button>
+      </div>
     </div>
   `
 }
