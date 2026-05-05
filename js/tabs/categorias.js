@@ -116,7 +116,7 @@ async function carregarDados() {
     if (error) throw error
 
     const filtrados = lancamentos.filter(l =>
-      l.metodos?.id_tipo === 2 && l.categorias?.id_tipo !== 4
+      (l.metodos?.id_tipo === 1 || l.metodos?.id_tipo === 2) && l.categorias?.id_tipo !== 4
     )
 
     const catMap = {}
@@ -149,7 +149,7 @@ async function carregarDados() {
 
 function renderResumo(total) {
   $('totalValor').textContent = formatBRL(total)
-  $('totalLabel').textContent = `gasto em ${formatCompetencia(competencia)}`
+  $('totalLabel').textContent = `movimentado em ${formatCompetencia(competencia)}`
 }
 
 function renderDonut(cats) {
