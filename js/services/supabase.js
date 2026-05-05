@@ -131,6 +131,13 @@ export async function getCategorias() {
   return data
 }
 
+// Busca todos os métodos
+export async function getMetodos() {
+  const { data, error } = await supabase.from('metodos').select('*').order('nome')
+  if (error) throw error
+  return data
+}
+
 // Busca métodos por tipo
 export async function getMetodosPorTipo(idTipo) {
   const { data, error } = await supabase

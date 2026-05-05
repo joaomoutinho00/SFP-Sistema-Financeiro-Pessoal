@@ -1,7 +1,7 @@
 // ============================================================
 // SFP — Aba: Lançamentos
 // ============================================================
-import { getLancamentos, getContas, getCategorias, deletarLancamento, deletarTransferencia } from '../services/supabase.js'
+import { getLancamentos, getContas, getCategorias, getMetodos, deletarLancamento, deletarTransferencia } from '../services/supabase.js'
 import { formatBRL, badgeBanco } from '../services/formatters.js'
 import { abrirNovoLancamento, abrirEditarLancamento } from '../forms/lancamento.js'
 
@@ -41,11 +41,13 @@ let filtroBanco    = ''
 let filtroTipo     = ''
 let filtroCateg          = ''
 let filtroSubcat         = ''
+let filtroMetodo         = ''
 let sortCol              = 'data'
 let sortDir              = 'desc'
 let lancamentosFiltrados = []
 let contasList     = []
 let categoriasList = []
+let metodosList    = []
 let tabContainer   = null
 
 // Modo de filtro de data
@@ -72,10 +74,11 @@ export async function render(container) {
   dataInicio   = firstOfMonth(0)
   dataFim      = lastOfMonth(0)
   periodoLabel = 'Este mês'
-  filtroBanco  = ''
-  filtroTipo   = ''
-  filtroCateg  = ''
-  filtroSubcat = ''
+  filtroBanco   = ''
+  filtroTipo    = ''
+  filtroCateg   = ''
+  filtroSubcat  = ''
+  filtroMetodo  = ''
   sortCol           = 'data'
   sortDir           = 'desc'
   filterMode        = 'data'
@@ -88,7 +91,7 @@ export async function render(container) {
   popActiveQ   = 'este-mes'
   initCalMonths()
 
-  ;[contasList, categoriasList] = await Promise.all([getContas(), getCategorias()])
+  ;[contasList, categoriasList, metodosList] = await Promise.all([getContas(), getCategorias(), getMetodos()])
 
   container.innerHTML = buildShell()
   initPopover()
@@ -111,6 +114,7 @@ function buildShell() {
   ].join('')
 
   const subcatOpts = buildSubcatOptions()
+
 
   return `
     <div class="kpi-grid" id="resumoCards" style="margin-bottom:20px">
@@ -146,6 +150,9 @@ function buildShell() {
           </select>
         </div>
         <div class="filter-pill" style="border-radius:var(--radius-sm)">
+          <select id="selMetodo"><option value="">Métodos</option></select>
+        </div>
+        <div class="filter-pill" style="border-radius:var(--radius-sm)">
           <select id="selCategoria">${categOpts}</select>
         </div>
         <div class="filter-pill" style="border-radius:var(--radius-sm)">
@@ -171,7 +178,9 @@ function bindEvents(container) {
     filtroBanco = e.target.value; carregarTabela(container)
   })
   container.querySelector('#selTipo').addEventListener('change', e => {
-    filtroTipo = e.target.value; carregarTabela(container)
+    filtroTipo   = e.target.value
+    filtroMetodo = ''
+    carregarTabela(container)
   })
   container.querySelector('#selCategoria').addEventListener('change', e => {
     filtroCateg  = e.target.value
@@ -181,6 +190,9 @@ function bindEvents(container) {
   })
   container.querySelector('#selSubcat').addEventListener('change', e => {
     filtroSubcat = e.target.value; carregarTabela(container)
+  })
+  container.querySelector('#selMetodo').addEventListener('change', e => {
+    filtroMetodo = e.target.value; carregarTabela(container)
   })
 }
 
@@ -537,6 +549,26 @@ function renderCards(container, lancamentos) {
   `
 }
 
+// ── Método select dinâmico ─────────────────────────────────────
+function atualizarMetodoSelect(container, dados) {
+  const sel = container.querySelector('#selMetodo')
+  if (!sel) return
+
+  const idsNoDados = new Set(dados.map(l => l.metodos?.id).filter(Boolean))
+  const disponiveis = metodosList.filter(m => idsNoDados.has(m.id))
+
+  if (filtroMetodo && !disponiveis.some(m => String(m.id) === filtroMetodo)) {
+    filtroMetodo = ''
+  }
+
+  sel.innerHTML = [
+    '<option value="">Métodos</option>',
+    ...disponiveis.map(m =>
+      `<option value="${m.id}"${String(m.id) === filtroMetodo ? ' selected' : ''}>${m.nome}</option>`
+    )
+  ].join('')
+}
+
 // ── Tabela ─────────────────────────────────────────────────────
 async function carregarTabela(container) {
   const wrapper = container.querySelector('#tableWrapper')
@@ -547,11 +579,19 @@ async function carregarTabela(container) {
       competencia:  filterMode === 'competencia' ? (competenciaFiltro || undefined) : undefined,
       dataInicio:   filterMode === 'data'        ? (dataInicio || undefined)        : undefined,
       dataFim:      filterMode === 'data'        ? (dataFim    || undefined)        : undefined,
-      banco:        filtroBanco || undefined,
-      tipo:         filtroTipo  || undefined,
-      categoria:    filtroCateg || undefined,
+      banco:        filtroBanco  || undefined,
+      tipo:         filtroTipo   || undefined,
+      categoria:    filtroCateg  || undefined,
       subcategoria: filtroSubcat || undefined,
     })
+
+    // Atualiza opções do select de método com base nos dados já filtrados por tipo/conta
+    atualizarMetodoSelect(container, lancamentos)
+
+    // Aplica filtro de método client-side
+    if (filtroMetodo) {
+      lancamentos = lancamentos.filter(l => String(l.metodos?.id) === filtroMetodo)
+    }
 
     lancamentosFiltrados = lancamentos
     renderTabela(container)
