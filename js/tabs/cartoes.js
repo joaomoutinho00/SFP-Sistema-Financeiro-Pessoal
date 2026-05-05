@@ -347,8 +347,17 @@ async function abrirFatura(fatura) {
           </div>
           <div style="font-size:22px;font-weight:700;color:var(--amber)">${formatBRL(fatura.total)}</div>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0">
-          <button class="btn btn-outline" id="exportarCsvBtn" disabled>↓ CSV</button>
+        <div style="display:flex;gap:8px;flex-shrink:0;position:relative">
+          <button class="btn btn-outline" id="exportarBtn" disabled style="display:flex;align-items:center;gap:6px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Exportar
+          </button>
+          <div id="exportarMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);box-shadow:0 4px 16px rgba(0,0,0,0.12);min-width:150px;z-index:10;overflow:hidden">
+            <button id="exportCsvOpt" style="display:flex;align-items:center;gap:10px;width:100%;padding:10px 14px;background:none;border:none;cursor:pointer;font-size:13px;color:var(--text);text-align:left" onmouseover="this.style.background='var(--bg)'" onmouseout="this.style.background='none'">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              Excel / CSV
+            </button>
+          </div>
           <button class="btn btn-outline" id="fecharFaturaModal">Fechar</button>
         </div>
       </div>
@@ -377,9 +386,18 @@ async function abrirFatura(fatura) {
       return
     }
 
-    const btnCsv = el.querySelector('#exportarCsvBtn')
-    btnCsv.disabled = false
-    btnCsv.addEventListener('click', () => exportarFaturaCSV(fatura, data))
+    const btnExp  = el.querySelector('#exportarBtn')
+    const menu    = el.querySelector('#exportarMenu')
+    btnExp.disabled = false
+    btnExp.addEventListener('click', e => {
+      e.stopPropagation()
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none'
+    })
+    el.querySelector('#exportCsvOpt').addEventListener('click', () => {
+      menu.style.display = 'none'
+      exportarFaturaCSV(fatura, data)
+    })
+    el.addEventListener('click', () => { menu.style.display = 'none' })
 
     div.innerHTML = data.map((l, i) => {
       const dataStr = l.data
