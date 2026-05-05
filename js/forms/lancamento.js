@@ -90,6 +90,26 @@ function initDrawer() {
   document.getElementById('drawerClose').addEventListener('click', fechar)
 }
 
+// Busca a fatura aberta para a conta+competência; cria se não existir
+async function resolverFatura(idConta, competencia) {
+  const { data: fat } = await supabase
+    .from('faturas')
+    .select('id')
+    .eq('id_conta', idConta)
+    .eq('competencia', competencia)
+    .eq('status', 'ABERTA')
+    .maybeSingle()
+  if (fat) return fat.id
+
+  const { data: nova, error } = await supabase
+    .from('faturas')
+    .insert({ id_conta: idConta, competencia, status: 'ABERTA' })
+    .select('id')
+    .single()
+  if (error) throw error
+  return nova.id
+}
+
 // ── Export principal ──────────────────────────────────────────
 export async function abrirNovoLancamento() {
   initDrawer()
@@ -154,26 +174,6 @@ export async function abrirNovoLancamento() {
       }
       wrap.style.display = (catId && subs.length > 1) ? '' : 'none'
     })
-  }
-
-  // Busca a fatura aberta para a conta+competência; cria se não existir
-  async function resolverFatura(idConta, competencia) {
-    const { data: fat } = await supabase
-      .from('faturas')
-      .select('id')
-      .eq('id_conta', idConta)
-      .eq('competencia', competencia)
-      .eq('status', 'ABERTA')
-      .maybeSingle()
-    if (fat) return fat.id
-
-    const { data: nova, error } = await supabase
-      .from('faturas')
-      .insert({ id_conta: idConta, competencia, status: 'ABERTA' })
-      .select('id')
-      .single()
-    if (error) throw error
-    return nova.id
   }
 
   // Busca faturas abertas de uma conta, com total calculado pelos lançamentos
@@ -944,8 +944,9 @@ export async function abrirEditarLancamento(lanc) {
   const ehEntrada = idTipo === 1
   const mets      = metodos.filter(m => m.id_tipo === idTipo)
 
-  const idMetodoCred = metodos.find(m => m.nome === 'CRÉDITO')?.id
-  const idMetodoPix  = metodos.find(m => m.nome === 'PIX')?.id
+  const idMetodoCred      = metodos.find(m => m.nome === 'CRÉDITO')?.id
+  const idMetodoPix       = metodos.find(m => m.nome === 'PIX')?.id
+  const idMetodoReembolso = metodos.find(m => m.nome === 'REEMBOLSO CARTÃO')?.id
   let contasFiltradas = contas
   if (idMetodo == idMetodoCred) contasFiltradas = contas.filter(c => c.has_credit)
   else if (idMetodo == idMetodoPix) contasFiltradas = contas.filter(c => !c.is_investimento)
