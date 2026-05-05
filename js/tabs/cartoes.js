@@ -312,7 +312,7 @@ async function abrirFatura(fatura) {
         </div>
         <button class="btn btn-outline" id="fecharFaturaModal" style="flex-shrink:0">Fechar</button>
       </div>
-      <div id="faturaLancs" style="overflow-y:auto;flex:1">
+      <div id="faturaLancs" style="overflow-y:auto;flex:1;padding-right:16px">
         <div class="loading"><div class="spinner"></div></div>
       </div>
     </div>
