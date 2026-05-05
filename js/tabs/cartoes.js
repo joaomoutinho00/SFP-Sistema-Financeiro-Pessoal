@@ -299,6 +299,35 @@ function renderListaFaturas(faturas) {
   return `<div id="listaFaturas">${cabecalho}${linhas}</div>`
 }
 
+function exportarFaturaCSV(fatura, lancamentos) {
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+  const competStr = fatura.competencia?.slice(0, 7) ?? 'fatura'
+  const cartao    = fatura.conta?.nome ?? 'cartao'
+
+  const cabecalho = ['Data', 'Descrição', 'Categoria', 'Subcategoria', 'Método', 'Valor (R$)'].map(esc).join(';')
+  const linhas    = lancamentos.map(l => {
+    const isReemb = l.metodos?.nome === 'REEMBOLSO CARTÃO'
+    const valor   = isReemb ? Math.abs(l.valor) : -Math.abs(l.valor)
+    return [
+      l.data ?? '',
+      l.descricao ?? '',
+      l.categorias?.nome ?? '',
+      l.subcategorias?.nome ?? '',
+      l.metodos?.nome ?? '',
+      String(valor).replace('.', ','),
+    ].map(esc).join(';')
+  })
+
+  const csv  = '﻿' + [cabecalho, ...linhas].join('\r\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `fatura-${cartao}-${competStr}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 async function abrirFatura(fatura) {
   const isPaga = fatura.status === 'PAGA'
   const badge  = isPaga
@@ -318,7 +347,10 @@ async function abrirFatura(fatura) {
           </div>
           <div style="font-size:22px;font-weight:700;color:var(--amber)">${formatBRL(fatura.total)}</div>
         </div>
-        <button class="btn btn-outline" id="fecharFaturaModal" style="flex-shrink:0">Fechar</button>
+        <div style="display:flex;gap:8px;flex-shrink:0">
+          <button class="btn btn-outline" id="exportarCsvBtn" disabled>↓ CSV</button>
+          <button class="btn btn-outline" id="fecharFaturaModal">Fechar</button>
+        </div>
       </div>
       <div id="faturaLancs" style="overflow-y:auto;flex:1;padding-right:16px">
         <div class="loading"><div class="spinner"></div></div>
@@ -344,6 +376,10 @@ async function abrirFatura(fatura) {
       div.innerHTML = `<p style="color:var(--text-muted);font-size:14px;text-align:center;padding:32px 0">Nenhum lançamento nesta fatura.</p>`
       return
     }
+
+    const btnCsv = el.querySelector('#exportarCsvBtn')
+    btnCsv.disabled = false
+    btnCsv.addEventListener('click', () => exportarFaturaCSV(fatura, data))
 
     div.innerHTML = data.map((l, i) => {
       const dataStr = l.data
