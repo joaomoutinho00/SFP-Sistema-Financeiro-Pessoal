@@ -1013,11 +1013,15 @@ export async function abrirEditarLancamento(lanc) {
       erroEl.style.display = 'block'
       return
     }
+    const competencia = primeiroDiaMes(data)
+    const vinculaFatura = idMetodoNovo === idMetodoCred || idMetodoNovo === idMetodoReembolso
+    const idFatura = vinculaFatura ? await resolverFatura(idContaNova, competencia) : null
     await salvarEdicao({
       data, descricao, valor: Math.abs(valorRaw),
       id_metodo: idMetodoNovo, id_conta: idContaNova,
       id_categoria: idCateg, id_subcategoria: idSubcat,
-      competencia: primeiroDiaMes(data),
+      competencia,
+      id_fatura: idFatura,
     }, false)
   })
 }
