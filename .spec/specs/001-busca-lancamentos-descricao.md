@@ -8,7 +8,7 @@
 |-------|-------|
 | ID | 001 |
 | Slug | `busca-lancamentos-descricao` |
-| Status | Rascunho |
+| Status | Concluída |
 | Criada em | 2026-06-28 |
 | Atualizada em | 2026-06-28 |
 | Responsável | Titular (único usuário) |

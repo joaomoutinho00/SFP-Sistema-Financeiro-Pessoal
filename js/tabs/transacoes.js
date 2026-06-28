@@ -42,6 +42,7 @@ let filtroTipo     = ''
 let filtroCateg          = ''
 let filtroSubcat         = ''
 let filtroMetodo         = ''
+let filtroBusca          = ''
 let sortCol              = 'data'
 let sortDir              = 'desc'
 let lancamentosFiltrados = []
@@ -79,6 +80,7 @@ export async function render(container) {
   filtroCateg   = ''
   filtroSubcat  = ''
   filtroMetodo  = ''
+  filtroBusca   = ''
   sortCol           = 'data'
   sortDir           = 'desc'
   filterMode        = 'data'
@@ -158,6 +160,13 @@ function buildShell() {
         <div class="filter-pill" style="border-radius:var(--radius-sm)">
           <select id="selSubcat">${subcatOpts}</select>
         </div>
+        <div class="filter-pill" style="border-radius:var(--radius-sm);display:flex;align-items:center;gap:4px;padding:0 8px">
+          <input type="search" id="inputBusca" placeholder="Buscar descrição…"
+            style="border:none;background:transparent;outline:none;font-size:13px;color:var(--text);min-width:160px"
+            value="${filtroBusca}" autocomplete="off">
+          <button id="btnLimparBusca" title="Limpar busca"
+            style="display:${filtroBusca ? 'flex' : 'none'};align-items:center;justify-content:center;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-size:14px;padding:0;line-height:1">×</button>
+        </div>
       </div>
 
       <div class="table-wrapper" id="tableWrapper">
@@ -193,6 +202,23 @@ function bindEvents(container) {
   })
   container.querySelector('#selMetodo').addEventListener('change', e => {
     filtroMetodo = e.target.value; carregarTabela(container)
+  })
+
+  let debounceTimer = null
+  container.querySelector('#inputBusca').addEventListener('input', e => {
+    filtroBusca = e.target.value
+    const btn = container.querySelector('#btnLimparBusca')
+    if (btn) btn.style.display = filtroBusca ? 'flex' : 'none'
+    clearTimeout(debounceTimer)
+    debounceTimer = setTimeout(() => carregarTabela(container), 300)
+  })
+  container.querySelector('#btnLimparBusca').addEventListener('click', () => {
+    filtroBusca = ''
+    const input = container.querySelector('#inputBusca')
+    if (input) { input.value = ''; input.focus() }
+    const btn = container.querySelector('#btnLimparBusca')
+    if (btn) btn.style.display = 'none'
+    carregarTabela(container)
   })
 }
 
@@ -583,6 +609,7 @@ async function carregarTabela(container) {
       tipo:         filtroTipo   || undefined,
       categoria:    filtroCateg  || undefined,
       subcategoria: filtroSubcat || undefined,
+      busca:        filtroBusca  || undefined,
     })
 
     // Atualiza opções do select de método com base nos dados já filtrados por tipo/conta

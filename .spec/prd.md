@@ -133,6 +133,18 @@ atrito de manter uma planilha manual.
 - **Consequências:** regras de acesso dependem inteiramente de RLS bem configurado;
   qualquer deploy público exige RLS revisado.
 
+### ADR-SP001-001 — Filtro de busca por descrição client-side com normalização de diacríticos (spec 001-busca-lancamentos-descricao)
+- **Contexto:** a busca incide sobre o conjunto já carregado e filtrado pelos demais critérios; o volume é o de uma competência/período do titular (single-user).
+- **Decisão:** manter a filtragem de descrição em JavaScript no service (`getLancamentos`), usando `String.prototype.normalize('NFD')` + remoção de marcas combinantes + `toLowerCase` em termo e descrição.
+- **Motivo:** simplicidade e zero round-trips adicionais; reaproveita o pipeline atual e a combinação E-lógica com os outros filtros. Alternativa descartada: `ilike`/`unaccent` no PostgREST — exigiria extensão `unaccent` e refazer a query, sem ganho perceptível na escala single-user.
+- **Consequências:** a busca só enxerga o que já foi carregado pelos filtros estruturados (comportamento desejado); custo de normalização é desprezível no volume esperado.
+
+### ADR-SP001-002 — Acionamento da busca por digitação com debounce de 300 ms (spec 001-busca-lancamentos-descricao)
+- **Contexto:** filtrar a cada tecla recarrega a tabela em excesso; exigir Enter/botão reduz a fluidez.
+- **Decisão:** recarregar automaticamente após ~300 ms da última tecla (debounce via `setTimeout`).
+- **Motivo:** equilibra fluidez e número de recargas. Alternativas descartadas: Enter e botão dedicado.
+- **Consequências:** há um pequeno atraso perceptível entre digitar e ver o resultado, aceitável.
+
 ## Questões em aberto e riscos
 
 - **Risco:** a aba **DRE** está na navegação ([index.html:30](../index.html#L30)) mas não

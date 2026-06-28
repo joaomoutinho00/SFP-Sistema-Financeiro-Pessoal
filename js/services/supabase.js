@@ -39,12 +39,11 @@ export async function getLancamentos({ competencia, banco, tipo, categoria, subc
 
   let resultado = data
 
-  // Filtro de busca por descrição
+  // Filtro de busca por descrição (insensível a acentos e caixa)
   if (busca) {
-    const termo = busca.toLowerCase()
-    resultado = resultado.filter(l =>
-      l.descricao.toLowerCase().includes(termo)
-    )
+    const norm  = t => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    const termo = norm(busca)
+    resultado   = resultado.filter(l => norm(l.descricao ?? '').includes(termo))
   }
 
   // Filtro de tipo (ENTRADA=1, SAÍDA=2, TRANSF=3) via id_tipo do método
