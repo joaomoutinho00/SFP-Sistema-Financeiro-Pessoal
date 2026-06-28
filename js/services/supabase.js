@@ -23,7 +23,7 @@ export async function getLancamentos({ competencia, banco, tipo, categoria, subc
       metodos ( id, nome, afeta_saldo, id_tipo ),
       contas   ( id, nome, is_investimento ),
       categorias   ( id, nome, id_tipo ),
-      subcategorias ( id, nome )
+      subcategorias!lancamentos_id_subcategoria_fkey ( id, nome )
     `)
     .order('data', { ascending: false })
 
@@ -213,7 +213,7 @@ export async function getDRE(ano) {
       competencia,
       metodos       ( id, nome, id_tipo ),
       categorias    ( id, nome ),
-      subcategorias ( id, nome )
+      subcategorias!lancamentos_id_subcategoria_fkey ( id, nome )
     `)
     .gte('competencia', `${ano}-01-01`)
     .lte('competencia', `${ano}-12-01`)

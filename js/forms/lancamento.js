@@ -111,7 +111,7 @@ function initDrawer() {
 }
 
 // Calcula e atualiza a competência no campo de entrada
-function atualizarCompetenciaAuto() {
+function atualizarCompetenciaAuto(idMetodoCred, idMetodoReembolso, contas) {
   const fData = document.getElementById('fData')
   const fConta = document.getElementById('fConta')
   const fMetodo = document.getElementById('fMetodo')
@@ -682,18 +682,18 @@ export async function abrirNovoLancamento() {
           if (idMet == idMetodoPix  &&  contaSel.is_investimento) fConta.value = ''
         }
         aplicarCorConta(fConta, contas)
-        atualizarCompetenciaAuto()
+        atualizarCompetenciaAuto(idMetodoCred, idMetodoReembolso, contas)
       })
     }
 
     const fDataEl = document.getElementById('fData')
     if (fDataEl) {
-      fDataEl.addEventListener('change', () => atualizarCompetenciaAuto())
+      fDataEl.addEventListener('change', () => atualizarCompetenciaAuto(idMetodoCred, idMetodoReembolso, contas))
     }
 
     const fContaEl = document.getElementById('fConta')
     if (fContaEl) {
-      fContaEl.addEventListener('change', () => atualizarCompetenciaAuto())
+      fContaEl.addEventListener('change', () => atualizarCompetenciaAuto(idMetodoCred, idMetodoReembolso, contas))
     }
 
     const fOrigem = document.getElementById('fContaOrigem')
@@ -731,7 +731,7 @@ export async function abrirNovoLancamento() {
       el.addEventListener('change', () => aplicarCorConta(el, contas))
     }
 
-    atualizarCompetenciaAuto()
+    atualizarCompetenciaAuto(idMetodoCred, idMetodoReembolso, contas)
     document.getElementById('fSalvar').addEventListener('click', salvar)
   }
 

@@ -459,7 +459,7 @@ async function abrirFatura(fatura) {
   try {
     const { data, error } = await supabase
       .from('lancamentos')
-      .select('id_lancamento, data, descricao, valor, metodos(nome), categorias(nome), subcategorias(nome)')
+      .select('id_lancamento, data, descricao, valor, metodos(nome), categorias(nome), subcategorias!lancamentos_id_subcategoria_fkey(nome)')
       .eq('id_fatura', fatura.id)
       .order('data', { ascending: false })
     if (error) throw error

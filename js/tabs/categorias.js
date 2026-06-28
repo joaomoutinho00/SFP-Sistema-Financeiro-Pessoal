@@ -161,7 +161,7 @@ async function carregarDados() {
   try {
     const { data: lancamentos, error } = await supabase
       .from('lancamentos')
-      .select('*, metodos(*), categorias(*), subcategorias(*)')
+      .select('*, metodos(*), categorias(*), subcategorias!lancamentos_id_subcategoria_fkey(*)')
       .eq('competencia', competencia)
 
     if (error) throw error

@@ -27,7 +27,7 @@ async function buscarParcelamentos() {
       id_lancamento, id_parcela, data, descricao, valor, qtd_parcelas, parcela_atual,
       contas       ( id, nome ),
       categorias   ( id, nome, id_tipo ),
-      subcategorias( id, nome )
+      subcategorias!lancamentos_id_subcategoria_fkey( id, nome )
     `)
     .not('id_parcela', 'is', null)
     .order('data', { ascending: true })
