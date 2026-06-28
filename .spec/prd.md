@@ -145,11 +145,33 @@ atrito de manter uma planilha manual.
 - **Motivo:** equilibra fluidez e número de recargas. Alternativas descartadas: Enter e botão dedicado.
 - **Consequências:** há um pequeno atraso perceptível entre digitar e ver o resultado, aceitável.
 
+### ADR-SP002-001 — Apuração anual com colunas mensais agregadas no cliente (spec 002-dre)
+- **Contexto:** o DRE exibe 12 meses por categoria; o restante do app opera por competência única.
+- **Decisão:** uma única query ao Supabase filtrando `competencia` entre `AAAA-01-01` e `AAAA-12-01`; agregação por mês/seção/categoria feita em JavaScript.
+- **Motivo:** evita 12 round-trips; volume anual de um único titular é pequeno. Alternativa descartada: uma query por mês (12 chamadas).
+- **Consequências:** toda a lógica de pivô mensal vive no cliente; coerente com o estilo vanilla do projeto.
+
+### ADR-SP002-002 — Categorias do DRE derivadas dos dados, sem lista fixa (spec 002-dre)
+- **Contexto:** novas categorias com movimentação devem aparecer automaticamente no DRE.
+- **Decisão:** montar linhas a partir dos lançamentos do ano (mesmo padrão de `catMap` em `categorias.js`), nunca de lista hardcoded.
+- **Motivo:** zero manutenção quando surge categoria nova; consistente com a aba Categorias. Alternativa descartada: enumerar categorias fixas no módulo.
+- **Consequências:** categorias sem lançamento no ano não aparecem; categorias com movimento em algum mês aparecem com os demais meses zerados.
+
+### ADR-SP002-003 — Investimentos em seção separada, fora do Resultado (spec 002-dre)
+- **Contexto:** investimento não é gasto — é dinheiro que o titular mantém consigo.
+- **Decisão:** Investimentos formam terceira seção; Resultado = Receitas − Despesas, sem subtrair Investimentos.
+- **Motivo:** reflete intenção do titular. Alternativa descartada: somar investimentos às despesas (distorceria o resultado).
+- **Consequências:** a seção Investimentos é informativa; Resultado pode ser positivo mesmo com aportes altos.
+
+### ADR-SP002-004 — DRE reutiliza regra de classificação de `getResumoMes` (spec 002-dre)
+- **Contexto:** já existe regra consolidada de entrada/saída/crédito/fatura/investimento em `getResumoMes`.
+- **Decisão:** `getDRE` espelha a classificação: id_tipo 2 exceto FATURA → Despesas (incluindo CRÉDITO); id_tipo 3 só INVESTIMENTO → Investimentos.
+- **Motivo:** consistência entre Visão Geral e DRE; evita duas definições divergentes de "despesa". Alternativa descartada: regra independente no módulo da aba.
+- **Consequências:** mudanças na regra de tipos devem ser feitas na camada service para manter as telas alinhadas.
+
 ## Questões em aberto e riscos
 
-- **Risco:** a aba **DRE** está na navegação ([index.html:30](../index.html#L30)) mas não
-  há módulo `js/tabs/dre.js` nem rota em [js/router.js](../js/router.js) →
-  implementar ou remover o botão. → mitigação: tratar em spec futura.
+- **Risco:** ~~a aba **DRE** está na navegação mas não há módulo/rota~~ — resolvido em spec 002-dre.
 - **Risco:** dependência de CDNs (Chart.js, supabase-js, Sora) — indisponibilidade do CDN
   quebra o app. → mitigação: avaliar fixar versões/local se virar problema.
 - **Risco:** RLS do Supabase é a única barreira de acesso aos dados. → mitigação: revisar

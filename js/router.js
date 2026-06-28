@@ -11,6 +11,7 @@ const TABS = {
   'assinaturas':   () => import('./tabs/assinaturas.js'),
   'categorias':    () => import('./tabs/categorias.js'),
   'cartoes':       () => import('./tabs/cartoes.js'),
+  'dre':           () => import('./tabs/dre.js'),
 }
 
 // Cache dos módulos já carregados

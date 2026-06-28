@@ -204,6 +204,85 @@ export async function proximoIdParcela() {
   return `P${String(num).padStart(6, '0')}`
 }
 
+// Busca dados agregados para o DRE (ano inteiro, uma query)
+export async function getDRE(ano) {
+  const { data, error } = await supabase
+    .from('lancamentos')
+    .select(`
+      valor,
+      competencia,
+      metodos       ( id, nome, id_tipo ),
+      categorias    ( id, nome ),
+      subcategorias ( id, nome )
+    `)
+    .gte('competencia', `${ano}-01-01`)
+    .lte('competencia', `${ano}-12-01`)
+
+  if (error) throw error
+
+  const secoes = { receitas: {}, despesas: {}, investimentos: {} }
+  const totaisMes = {
+    receitas:      new Array(12).fill(0),
+    despesas:      new Array(12).fill(0),
+    investimentos: new Array(12).fill(0),
+    resultado:     new Array(12).fill(0),
+  }
+
+  for (const l of data) {
+    if (!l.competencia) continue
+    const mes    = parseInt(l.competencia.split('-')[1], 10) - 1
+    if (mes < 0 || mes > 11) continue
+
+    const idTipo = l.metodos?.id_tipo
+    const metodo = l.metodos?.nome
+    const valor  = Math.abs(l.valor)
+    const cat    = l.categorias?.nome || 'SEM CATEGORIA'
+    const sub    = l.subcategorias?.nome || null
+
+    let secao = null
+    if      (idTipo === 1)                              secao = 'receitas'
+    else if (idTipo === 2 && metodo !== 'FATURA')       secao = 'despesas'
+    else if (idTipo === 3 && metodo === 'INVESTIMENTO') secao = 'investimentos'
+
+    if (!secao) continue
+
+    const mapa = secoes[secao]
+    if (!mapa[cat]) mapa[cat] = { total: 0, meses: new Array(12).fill(0), subcats: {} }
+    mapa[cat].meses[mes] += valor
+    mapa[cat].total      += valor
+    totaisMes[secao][mes] += valor
+
+    if (sub) {
+      if (!mapa[cat].subcats[sub])
+        mapa[cat].subcats[sub] = { total: 0, meses: new Array(12).fill(0) }
+      mapa[cat].subcats[sub].meses[mes] += valor
+      mapa[cat].subcats[sub].total      += valor
+    }
+  }
+
+  for (let i = 0; i < 12; i++)
+    totaisMes.resultado[i] = totaisMes.receitas[i] - totaisMes.despesas[i]
+
+  const toArr = mapa => Object.entries(mapa)
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([nome, d]) => ({
+      nome,
+      total: d.total,
+      meses: d.meses,
+      subcats: Object.entries(d.subcats)
+        .sort((a, b) => b[1].total - a[1].total)
+        .map(([sn, sd]) => ({ nome: sn, total: sd.total, meses: sd.meses }))
+    }))
+
+  return {
+    ano,
+    receitas:      toArr(secoes.receitas),
+    despesas:      toArr(secoes.despesas),
+    investimentos: toArr(secoes.investimentos),
+    totaisMes,
+  }
+}
+
 // Gera próximo ID de transferência
 export async function proximoIdTransf() {
   const { data, error } = await supabase
