@@ -21,7 +21,7 @@ export async function getLancamentos({ competencia, banco, tipo, categoria, subc
       competencia,
       id_fatura,
       metodos ( id, nome, afeta_saldo, id_tipo ),
-      contas   ( id, nome ),
+      contas   ( id, nome, is_investimento ),
       categorias   ( id, nome, id_tipo ),
       subcategorias ( id, nome )
     `)

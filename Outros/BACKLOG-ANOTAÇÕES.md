@@ -1,11 +1,5 @@
 BACKLOG/ANOTAÇÕES
 
-# Tela: Novo Lançamento: GERAL
-
-- Desenvolver logica criação de nova Saída
-- Desenvolver logica criação de nova Controle
-- Desenvolver logica criação de nova Transferência
-
 
 # Tela: Novo Lançamento: SAÍDA:
 

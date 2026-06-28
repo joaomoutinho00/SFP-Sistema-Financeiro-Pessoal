@@ -110,6 +110,26 @@ function initDrawer() {
   document.getElementById('drawerClose').addEventListener('click', fechar)
 }
 
+// Calcula e atualiza a competência no campo de entrada
+function atualizarCompetenciaAuto() {
+  const fData = document.getElementById('fData')
+  const fConta = document.getElementById('fConta')
+  const fMetodo = document.getElementById('fMetodo')
+  const fCompetencia = document.getElementById('fCompetencia')
+  if (!fData || !fConta || !fMetodo || !fCompetencia) return
+
+  const data = fData.value
+  const idConta = parseInt(fConta.value)
+  const idMetodo = parseInt(fMetodo.value)
+  if (!data || !idConta || !idMetodo) return
+
+  const isCred = idMetodo === idMetodoCred || idMetodo === idMetodoReembolso
+  if (!isCred) return
+
+  const comp = competenciaParaCredito(data, idConta, contas)
+  if (comp) fCompetencia.value = comp.substring(0, 7)
+}
+
 // Busca a fatura aberta para a conta+competência; cria se não existir
 async function resolverFatura(idConta, competencia) {
   const { data: fat } = await supabase
@@ -151,6 +171,8 @@ export async function abrirNovoLancamento() {
   const idMetodoTransfEntr  = metodos.find(m => m.id_tipo === 3 && m.nome === 'ENTRADA')?.id
   const idMetodoFatura      = metodos.find(m => m.nome === 'FATURA')?.id
   const idMetodoReembolso   = metodos.find(m => m.nome === 'REEMBOLSO CARTÃO')?.id
+  const idMetodoAporte      = metodos.find(m => m.id_tipo === 5 && m.nome === 'APORTE')?.id
+  const idMetodoRetirada    = metodos.find(m => m.id_tipo === 5 && m.nome === 'RETIRADA')?.id
 
   // IDs de categorias e subcategorias de controle (auto-seleção pois cada uma tem 1 sub)
   const _catPagFatura   = categorias.find(c => c.nome === 'PAG. FATURA'        && c.id_tipo === 4)
@@ -224,7 +246,7 @@ export async function abrirNovoLancamento() {
 
   // ── State ────────────────────────────────────────────────────
   function lerValores() {
-    for (const id of ['fData','fConta','fDescricao','fValor','fMetodo','fCategoria','fSubcategoria','fQtdParcelas','fParcelaAtual','fContaOrigem','fContaDestino']) {
+    for (const id of ['fData','fConta','fDescricao','fValor','fMetodo','fCategoria','fSubcategoria','fQtdParcelas','fParcelaAtual','fContaOrigem','fContaDestino','fCompetencia']) {
       const el = document.getElementById(id)
       if (el) vals[id] = el.value
     }
@@ -238,6 +260,7 @@ export async function abrirNovoLancamento() {
     const ehSaida    = tipoSel === 2
     const ehTransf   = tipoSel === 3
     const ehControle = tipoSel === 4
+    const ehInvest   = tipoSel === 5
     const mets       = metodos.filter(m => m.id_tipo === tipoSel)
     const cats       = categorias.filter(c => c.id_tipo === tipoSel)
 
@@ -338,6 +361,89 @@ export async function abrirNovoLancamento() {
       return
     }
 
+    // ── INVESTIMENTO ──────────────────────────────────────────
+    if (ehInvest) {
+      const ehAporte        = vals.fMetodo && vals.fMetodo == idMetodoAporte
+      const ehRetirada      = vals.fMetodo && vals.fMetodo == idMetodoRetirada
+      const precisaDuasConta = ehAporte || ehRetirada
+
+      const contasOrigem  = ehAporte   ? contas.filter(c => !c.is_investimento)
+                           : ehRetirada ? contas.filter(c =>  c.is_investimento)
+                           : []
+      const contasDestino = ehAporte   ? contas.filter(c =>  c.is_investimento)
+                           : ehRetirada ? contas.filter(c => !c.is_investimento)
+                           : []
+      const contasSingle  = contas.filter(c => c.is_investimento)
+
+      const catSel  = categorias.find(c => c.id == vals.fCategoria)
+      const subsArr = catSel?.subcategorias ?? []
+      if (subsArr.length === 1) vals.fSubcategoria = String(subsArr[0].id)
+      const showSubcat = vals.fCategoria && subsArr.length > 1
+
+      body.innerHTML = tipoBar + `
+        <div class="form-row-2">
+          <div class="form-group">
+            <label class="form-label">Data</label>
+            <input id="fData" type="date" class="form-input" value="${vals.fData ?? hoje}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Método</label>
+            <select id="fMetodo" class="form-select">
+              <option value="">Selecionar...</option>
+              ${mets.map(m => `<option value="${m.id}" ${vals.fMetodo == m.id ? 'selected' : ''}>${m.nome}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        ${precisaDuasConta ? `
+          <div class="form-row-2">
+            <div class="form-group">
+              <label class="form-label">${ehAporte ? 'Conta Origem' : 'Conta Investimento'}</label>
+              <select id="fContaOrigem" class="form-select">
+                <option value="">Selecionar...</option>
+                ${contasOrigem.map(c => `<option value="${c.id}" ${c.id == vals.fContaOrigem ? 'selected' : ''}>${c.nome}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">${ehAporte ? 'Conta Investimento' : 'Conta Destino'}</label>
+              <select id="fContaDestino" class="form-select">
+                <option value="">Selecionar...</option>
+                ${contasDestino.map(c => `<option value="${c.id}" ${c.id == vals.fContaDestino ? 'selected' : ''}>${c.nome}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        ` : `
+          <div class="form-group">
+            <label class="form-label">Conta</label>
+            <select id="fConta" class="form-select" ${!vals.fMetodo ? 'disabled' : ''}>
+              ${!vals.fMetodo
+                ? '<option value="">Selecione o método</option>'
+                : `<option value="">Selecionar...</option>` + contasSingle.map(c => `<option value="${c.id}" ${c.id == vals.fConta ? 'selected' : ''}>${c.nome}</option>`).join('')}
+            </select>
+          </div>
+        `}
+
+        <div class="form-group">
+          <label class="form-label">Valor (R$)</label>
+          <input id="fValor" type="number" class="form-input" placeholder="0.00" step="0.01" min="0" value="${vals.fValor ?? ''}">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descrição</label>
+          <input id="fDescricao" type="text" class="form-input" placeholder="Ex: Aporte XP..." value="${vals.fDescricao ?? ''}">
+        </div>
+
+        ${renderCatSubcat(cats, showSubcat)}
+
+        <button type="button" id="fSalvar" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;margin-top:8px">
+          Salvar Lançamento
+        </button>
+        <div id="fErro" style="color:var(--red);font-size:12px;margin-top:8px;display:none;text-align:center"></div>
+      `
+      bindForm()
+      return
+    }
+
     // ── OUTROS TIPOS ───────────────────────────────────────────
     const catSel   = categorias.find(c => c.id == vals.fCategoria)
     const subsArr  = catSel?.subcategorias ?? []
@@ -430,6 +536,13 @@ export async function abrirNovoLancamento() {
       </div>
 
       ${renderCatSubcat(cats, showSubcat)}
+
+      ${(ehSaida || ehEntrada) && (vals.fMetodo == idMetodoCred || vals.fMetodo == idMetodoReembolso) ? `
+        <div class="form-group">
+          <label class="form-label">Competência <span style="font-size:11px;color:var(--text-muted)">(calculada automaticamente, editar se necessário)</span></label>
+          <input id="fCompetencia" type="month" class="form-input" value="${vals.fCompetencia ?? ''}">
+        </div>
+      ` : ''}
 
       ${ehSaida ? `
         <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:12px;align-items:end">
@@ -535,6 +648,25 @@ export async function abrirNovoLancamento() {
       return
     }
 
+    // ── INVESTIMENTO ──────────────────────────────────────────
+    if (tipoSel === 5) {
+      document.getElementById('fMetodo')?.addEventListener('change', () => {
+        lerValores()
+        render()
+      })
+
+      for (const id of ['fContaOrigem', 'fContaDestino', 'fConta']) {
+        const el = document.getElementById(id)
+        if (!el) continue
+        aplicarCorConta(el, contas)
+        el.addEventListener('change', () => aplicarCorConta(el, contas))
+      }
+
+      bindCategoria()
+      document.getElementById('fSalvar').addEventListener('click', salvar)
+      return
+    }
+
     // ── OUTROS TIPOS ──────────────────────────────────────────
     const fMetodoEl = document.getElementById('fMetodo')
     if (fMetodoEl) {
@@ -550,7 +682,18 @@ export async function abrirNovoLancamento() {
           if (idMet == idMetodoPix  &&  contaSel.is_investimento) fConta.value = ''
         }
         aplicarCorConta(fConta, contas)
+        atualizarCompetenciaAuto()
       })
+    }
+
+    const fDataEl = document.getElementById('fData')
+    if (fDataEl) {
+      fDataEl.addEventListener('change', () => atualizarCompetenciaAuto())
+    }
+
+    const fContaEl = document.getElementById('fConta')
+    if (fContaEl) {
+      fContaEl.addEventListener('change', () => atualizarCompetenciaAuto())
     }
 
     const fOrigem = document.getElementById('fContaOrigem')
@@ -588,6 +731,7 @@ export async function abrirNovoLancamento() {
       el.addEventListener('change', () => aplicarCorConta(el, contas))
     }
 
+    atualizarCompetenciaAuto()
     document.getElementById('fSalvar').addEventListener('click', salvar)
   }
 
@@ -655,6 +799,121 @@ export async function abrirNovoLancamento() {
         erroEl.style.display = 'block'
         btn.disabled    = false
         btn.textContent = 'Pagar Fatura'
+      }
+      return
+    }
+
+    // ── INVESTIMENTO ─────────────────────────────────────────
+    if (tipoSel === 5) {
+      const data        = document.getElementById('fData').value
+      const descricao   = document.getElementById('fDescricao').value.trim()
+      const valorRaw    = parseFloat(document.getElementById('fValor').value)
+      const idMetodo    = parseInt(document.getElementById('fMetodo').value)
+      const idCategoria = parseInt(document.getElementById('fCategoria').value)
+      const idSubcat    = parseInt(document.getElementById('fSubcategoria').value) || null
+      const cat         = categorias.find(c => c.id === idCategoria)
+      const hasSubs     = (cat?.subcategorias ?? []).length > 0
+
+      const ehAporte        = idMetodo === idMetodoAporte
+      const ehRetirada      = idMetodo === idMetodoRetirada
+      const precisaDuasConta = ehAporte || ehRetirada
+
+      const erros = []
+      if (!data)                             erros.push('Data')
+      if (isNaN(idMetodo))                   erros.push('Método')
+      if (isNaN(valorRaw) || valorRaw <= 0)  erros.push('Valor')
+      if (!descricao)                        erros.push('Descrição')
+      if (isNaN(idCategoria))                erros.push('Categoria')
+      if (hasSubs && !idSubcat)              erros.push('Subcategoria')
+
+      if (precisaDuasConta) {
+        const idContaOrigem  = parseInt(document.getElementById('fContaOrigem').value)
+        const idContaDestino = parseInt(document.getElementById('fContaDestino').value)
+        if (!idContaOrigem)  erros.push(ehAporte ? 'Conta Origem' : 'Conta Investimento')
+        if (!idContaDestino) erros.push(ehAporte ? 'Conta Investimento' : 'Conta Destino')
+
+        if (erros.length) {
+          erroEl.textContent = 'Preencha: ' + erros.join(' · ')
+          erroEl.style.display = 'block'
+          return
+        }
+
+        const btn = document.getElementById('fSalvar')
+        btn.disabled    = true
+        btn.textContent = 'Salvando...'
+
+        try {
+          const idLanc1 = await proximoIdLancamento()
+          const num2    = parseInt(idLanc1.replace('L', '')) + 1
+          const idLanc2 = `L${String(num2).padStart(6, '0')}`
+          const base    = {
+            data,
+            descricao,
+            valor:           Math.abs(valorRaw),
+            id_metodo:       idMetodo,
+            id_categoria:    idCategoria,
+            id_subcategoria: idSubcat,
+            qtd_parcelas:    null,
+            parcela_atual:   null,
+            id_parcela:      null,
+            id_transf:       null,
+            id_fatura:       null,
+            competencia:     primeiroDiaMes(data),
+          }
+          const { error } = await supabase.from('lancamentos').insert([
+            { ...base, id_lancamento: idLanc1, id_conta: idContaOrigem  },
+            { ...base, id_lancamento: idLanc2, id_conta: idContaDestino },
+          ])
+          if (error) throw error
+          fecharSalvo()
+        } catch (err) {
+          erroEl.textContent = 'Erro ao salvar: ' + err.message
+          erroEl.style.display = 'block'
+          btn.disabled    = false
+          btn.textContent = 'Salvar Lançamento'
+        }
+        return
+      }
+
+      // RENDIMENTO ou método sem transferência: conta única (investimento)
+      const idConta = parseInt(document.getElementById('fConta').value)
+      if (!idConta) erros.push('Conta')
+
+      if (erros.length) {
+        erroEl.textContent = 'Preencha: ' + erros.join(' · ')
+        erroEl.style.display = 'block'
+        return
+      }
+
+      const btnR = document.getElementById('fSalvar')
+      btnR.disabled    = true
+      btnR.textContent = 'Salvando...'
+
+      try {
+        const idLancamento = await proximoIdLancamento()
+        const { error } = await supabase.from('lancamentos').insert({
+          id_lancamento:   idLancamento,
+          data,
+          id_metodo:       idMetodo,
+          id_conta:        idConta,
+          descricao,
+          valor:           Math.abs(valorRaw),
+          id_categoria:    idCategoria,
+          id_subcategoria: idSubcat,
+          qtd_parcelas:    null,
+          parcela_atual:   null,
+          id_parcela:      null,
+          id_transf:       null,
+          id_fatura:       null,
+          competencia:     primeiroDiaMes(data),
+        })
+        if (error) throw error
+        fecharSalvo()
+      } catch (err) {
+        erroEl.textContent = 'Erro ao salvar: ' + err.message
+        erroEl.style.display = 'block'
+        btnR.disabled    = false
+        btnR.textContent = 'Salvar Lançamento'
       }
       return
     }
@@ -757,9 +1016,15 @@ export async function abrirNovoLancamento() {
     btn.textContent = 'Salvando...'
 
     try {
-      const competencia = (idMetodo === idMetodoCred || idMetodo === idMetodoReembolso)
-        ? competenciaParaCredito(data, idConta, contas)
-        : primeiroDiaMes(data)
+      const fCompetenciaEl = document.getElementById('fCompetencia')
+      let competencia
+      if (fCompetenciaEl && fCompetenciaEl.value) {
+        competencia = fCompetenciaEl.value + '-01'
+      } else {
+        competencia = (idMetodo === idMetodoCred || idMetodo === idMetodoReembolso)
+          ? competenciaParaCredito(data, idConta, contas)
+          : primeiroDiaMes(data)
+      }
 
       // CRÉDITO e REEMBOLSO CARTÃO vinculam-se à fatura aberta da conta/mês
       let idFatura = null
@@ -772,7 +1037,8 @@ export async function abrirNovoLancamento() {
         (qtdParcelas && qtdParcelas > 1) ? proximoIdParcela() : Promise.resolve(null),
       ])
 
-      const { error } = await supabase.from('lancamentos').insert({
+      // Se tem parcelamento, cria lançamentos futuros
+      let lancamentosParaParcelas = [{
         id_lancamento:   idLancamento,
         data,
         id_metodo:       idMetodo,
@@ -787,7 +1053,38 @@ export async function abrirNovoLancamento() {
         id_transf:       null,
         competencia,
         id_fatura:       idFatura,
-      })
+      }]
+
+      if (qtdParcelas && qtdParcelas > 1 && parcelaAtual < qtdParcelas) {
+        const dataObj = new Date(data + 'T12:00:00')
+        for (let i = parcelaAtual + 1; i <= qtdParcelas; i++) {
+          // Parcelas futuras caem sempre no dia 1 do mês
+          const novaData = new Date(dataObj.getFullYear(), dataObj.getMonth() + (i - parcelaAtual), 1)
+          const novaDataStr = novaData.toISOString().split('T')[0]
+          const novaCompetencia = competenciaParaCredito(novaDataStr, idConta, contas)
+          const novaIdFatura = await resolverFatura(idConta, novaCompetencia)
+          const novoIdLanc = await proximoIdLancamento()
+
+          lancamentosParaParcelas.push({
+            id_lancamento:   novoIdLanc,
+            data:            novaDataStr,
+            id_metodo:       idMetodo,
+            id_conta:        idConta,
+            descricao,
+            valor:           Math.abs(valorRaw),
+            id_categoria:    idCategoria,
+            id_subcategoria: idSubcat,
+            qtd_parcelas:    qtdParcelas,
+            parcela_atual:   i,
+            id_parcela:      idParcela,
+            id_transf:       null,
+            competencia:     novaCompetencia,
+            id_fatura:       novaIdFatura,
+          })
+        }
+      }
+
+      const { error } = await supabase.from('lancamentos').insert(lancamentosParaParcelas)
       if (error) throw error
 
       fecharSalvo()

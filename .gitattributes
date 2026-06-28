@@ -1,0 +1,3 @@
+# Normaliza fins de linha: força LF no repositório, evitando ruído de CRLF
+# (OneDrive/editores Windows). Ver discussão sobre diff poluído por CRLF.
+* text=auto eol=lf

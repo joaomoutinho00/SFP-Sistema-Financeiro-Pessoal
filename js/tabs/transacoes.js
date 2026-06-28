@@ -690,6 +690,20 @@ function buildRow(l) {
     : '—'
   const sub = buildSub(l)
 
+  let classeV, valorV
+  if (idTipo === 5) {
+    const nome      = l.metodos?.nome
+    const isInvest  = l.contas?.is_investimento
+    // Mesma lógica do saldos.js: invest recebe APORTE/RENDIMENTO, perde RETIRADA
+    const positivo  = isInvest ? (nome === 'APORTE' || nome === 'RENDIMENTO') : nome === 'RETIRADA'
+    const v         = formatBRL(Math.abs(l.valor))
+    classeV = 'valor-invest'
+    valorV  = positivo ? `+${v}` : `-${v}`
+  } else {
+    classeV = classeValor(idTipo)
+    valorV  = formatValor(idTipo, l.valor)
+  }
+
   return `
     <tr data-id="${l.id_lancamento}">
       <td style="color:var(--text-muted);font-size:13px;white-space:nowrap">${dataStr}</td>
@@ -702,7 +716,7 @@ function buildRow(l) {
         </div>
       </td>
       <td class="text-right" style="white-space:nowrap">
-        <span class="${classeValor(idTipo)}">${formatValor(idTipo, l.valor)}</span>
+        <span class="${classeV}">${valorV}</span>
       </td>
       <td class="row-actions-cell">
         <div class="row-actions">
@@ -767,6 +781,7 @@ function classeValor(idTipo) {
   if (idTipo === 1) return 'valor-entrada'
   if (idTipo === 2) return 'valor-saida'
   if (idTipo === 4) return 'valor-fatura'
+  if (idTipo === 5) return 'valor-invest'
   return 'valor-neutro'
 }
 

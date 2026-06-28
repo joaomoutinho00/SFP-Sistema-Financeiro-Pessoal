@@ -6,15 +6,19 @@ import { supabase } from '../config.js'
 import { formatBRL, badgeBanco } from '../services/formatters.js'
 
 export async function render(container) {
-  container.innerHTML = `<div class="loading"><div class="spinner"></div></div>`
-
-  try {
-    const contas = await calcSaldoContas()
-    renderSaldos(container, contas)
-  } catch (err) {
-    console.error(err)
-    container.innerHTML = `<p style="color:var(--red);text-align:center;padding:32px;font-size:14px">Erro ao carregar saldo das contas.</p>`
+  async function atualizar() {
+    container.innerHTML = `<div class="loading"><div class="spinner"></div></div>`
+    try {
+      const contas = await calcSaldoContas()
+      renderSaldos(container, contas)
+    } catch (err) {
+      console.error(err)
+      container.innerHTML = `<p style="color:var(--red);text-align:center;padding:32px;font-size:14px">Erro ao carregar saldo das contas.</p>`
+    }
   }
+
+  window.addEventListener('sfp:lancamento-salvo', atualizar)
+  await atualizar()
 }
 
 async function calcSaldoContas() {

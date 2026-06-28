@@ -1,1 +1,3 @@
-pre-commit.sh
+#!/usr/bin/env bash
+# Lançador do hook real (git executa este arquivo via core.hooksPath).
+exec "$(dirname "$0")/pre-commit.sh" "$@"

@@ -311,6 +311,7 @@ tbody td {
 .valor-entrada { color: var(--green);      font-weight: 600; }
 .valor-saida   { color: var(--red);        font-weight: 600; }
 .valor-transf  { color: var(--blue);       font-weight: 600; }
+.valor-invest { color: var(--blue); font-weight: 600; }
 .valor-fatura  { color: var(--amber);      font-weight: 600; }
 .valor-neutro  { color: var(--text-muted); font-weight: 600; }
 

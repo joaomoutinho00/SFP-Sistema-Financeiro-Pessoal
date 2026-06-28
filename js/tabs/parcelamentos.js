@@ -50,7 +50,8 @@ async function buscarParcelamentos() {
     const valorPago = pagas.reduce((s, p) => s + Math.abs(p.valor), 0)
     const valorRest = restantes.reduce((s, p) => s + Math.abs(p.valor), 0)
     const pct       = qtdTotal > 0 ? Math.round(pagas.length / qtdTotal * 100) : 0
-    const status    = restantes.length > 0 ? 'andamento' : 'finalizado'
+    const ultimaParc = parcelas.find(p => p.parcela_atual === qtdTotal)
+    const status    = (restantes.length > 0 || !ultimaParc) ? 'andamento' : 'finalizado'
 
     return {
       id_parcela: ref.id_parcela,
