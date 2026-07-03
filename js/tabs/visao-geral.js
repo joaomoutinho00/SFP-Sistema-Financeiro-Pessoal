@@ -329,9 +329,9 @@ function renderCategorias(lancamentos, lancamentosAnt) {
   const maxRef = Math.max(...top8.map(([, v]) => v), ...top8.map(([k]) => ant[k] || 0), 1)
 
   const cabecalho = `
-    <div style="display:grid;grid-template-columns:1fr auto minmax(72px,120px) 58px auto;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
+    <div style="display:grid;grid-template-columns:1fr 92px minmax(72px,120px) 58px 84px;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
       <span style="font-size:12px;color:var(--text-muted);font-weight:500">Categoria</span>
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500">Atual</span>
+      <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:right">Atual</span>
       <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center">vs Mês Anterior</span>
       <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center">Variação</span>
       <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:right">Anterior</span>
@@ -355,9 +355,9 @@ function renderCategorias(lancamentos, lancamentosAnt) {
     }
 
     return `
-      <div style="display:grid;grid-template-columns:1fr auto minmax(72px,120px) 58px auto;align-items:center;gap:12px;padding:9px 0;${i < top8.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+      <div style="display:grid;grid-template-columns:1fr 92px minmax(72px,120px) 58px 84px;align-items:center;gap:12px;padding:9px 0;${i < top8.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
         <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cat}">${cat}</span>
-        <span style="font-size:13px;font-weight:600;white-space:nowrap">${formatBRL(valAtual)}</span>
+        <span style="font-size:13px;font-weight:600;white-space:nowrap;text-align:right">${formatBRL(valAtual)}</span>
         <div style="position:relative;height:6px;border-radius:3px;background:var(--border);overflow:hidden">
           ${pAnt > 0 ? `<div style="position:absolute;left:0;top:0;height:100%;width:${pAnt}%;background:#d1d5db"></div>` : ''}
           <div style="position:absolute;left:0;top:0;height:100%;width:${pAtual}%;background:${cor}"></div>
