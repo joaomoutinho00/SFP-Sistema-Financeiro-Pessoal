@@ -328,45 +328,56 @@ function renderCategorias(lancamentos, lancamentosAnt) {
 
   const maxRef = Math.max(...top8.map(([, v]) => v), ...top8.map(([k]) => ant[k] || 0), 1)
 
+  // Cabeçalho e linhas compartilham UM único grid (não um grid por linha),
+  // senão cada linha calcula suas colunas de forma independente e valores
+  // mais largos (ex.: "R$ 2.174,10") desalinham as colunas entre linhas.
+  const colunas = '1fr 92px minmax(72px,120px) 58px 84px'
+
   const cabecalho = `
-    <div style="display:grid;grid-template-columns:1fr 92px minmax(72px,120px) 58px 84px;gap:12px;padding-bottom:8px;border-bottom:1px solid var(--border)">
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500">Categoria</span>
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:right">Atual</span>
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center">vs Mês Anterior</span>
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:center">Variação</span>
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500;text-align:right">Anterior</span>
-    </div>
+    <span style="min-width:0;font-size:12px;color:var(--text-muted);font-weight:500;padding-bottom:8px;border-bottom:1px solid var(--border)">Categoria</span>
+    <span style="min-width:0;font-size:12px;color:var(--text-muted);font-weight:500;text-align:right;padding-bottom:8px;border-bottom:1px solid var(--border)">Atual</span>
+    <span style="min-width:0;font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding-bottom:8px;border-bottom:1px solid var(--border)">vs Mês Anterior</span>
+    <span style="min-width:0;font-size:12px;color:var(--text-muted);font-weight:500;text-align:center;padding-bottom:8px;border-bottom:1px solid var(--border)">Variação</span>
+    <span style="min-width:0;font-size:12px;color:var(--text-muted);font-weight:500;text-align:right;padding-bottom:8px;border-bottom:1px solid var(--border)">Anterior</span>
   `
 
-  document.getElementById('listaCategorias').innerHTML = cabecalho + top8.map(([cat, valAtual], i) => {
+  const linhas = top8.map(([cat, valAtual], i) => {
     const valAnt = ant[cat]
     const cor    = corCat(cat)
     const pAtual = (valAtual / maxRef * 100).toFixed(1)
     const pAnt   = valAnt ? (valAnt / maxRef * 100).toFixed(1) : 0
+    const borda  = i < top8.length - 1 ? 'border-bottom:1px solid var(--border)' : ''
 
     let badge
     if (!valAnt) {
-      badge = `<span style="font-size:11px;color:var(--text-muted)">novo</span>`
+      badge = `<span style="min-width:0;font-size:11px;color:var(--text-muted);text-align:center;padding:9px 0;${borda}">novo</span>`
     } else {
       const diff = (valAtual - valAnt) / valAnt * 100
       badge = diff <= 0
-        ? `<span style="font-size:11px;font-weight:600;color:var(--green)">↓ ${Math.abs(diff).toFixed(0)}%</span>`
-        : `<span style="font-size:11px;font-weight:600;color:var(--red)">↑ ${diff.toFixed(0)}%</span>`
+        ? `<span style="min-width:0;font-size:11px;font-weight:600;color:var(--green);text-align:center;padding:9px 0;${borda}">↓ ${Math.abs(diff).toFixed(0)}%</span>`
+        : `<span style="min-width:0;font-size:11px;font-weight:600;color:var(--red);text-align:center;padding:9px 0;${borda}">↑ ${diff.toFixed(0)}%</span>`
     }
 
     return `
-      <div style="display:grid;grid-template-columns:1fr 92px minmax(72px,120px) 58px 84px;align-items:center;gap:12px;padding:9px 0;${i < top8.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
-        <span style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${cat}">${cat}</span>
-        <span style="font-size:13px;font-weight:600;white-space:nowrap;text-align:right">${formatBRL(valAtual)}</span>
+      <span style="min-width:0;font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;align-self:center;padding:9px 0;${borda}" title="${cat}">${cat}</span>
+      <span style="min-width:0;font-size:13px;font-weight:600;white-space:nowrap;text-align:right;align-self:center;padding:9px 0;${borda}">${formatBRL(valAtual)}</span>
+      <div style="min-width:0;align-self:center;padding:9px 0;${borda}">
         <div style="position:relative;height:6px;border-radius:3px;background:var(--border);overflow:hidden">
           ${pAnt > 0 ? `<div style="position:absolute;left:0;top:0;height:100%;width:${pAnt}%;background:#d1d5db"></div>` : ''}
           <div style="position:absolute;left:0;top:0;height:100%;width:${pAtual}%;background:${cor}"></div>
         </div>
-        ${badge}
-        <span style="font-size:12px;color:var(--text-muted);text-align:right;white-space:nowrap">${valAnt ? formatBRL(valAnt) : '—'}</span>
       </div>
+      ${badge}
+      <span style="min-width:0;font-size:12px;color:var(--text-muted);text-align:right;white-space:nowrap;align-self:center;padding:9px 0;${borda}">${valAnt ? formatBRL(valAnt) : '—'}</span>
     `
   }).join('')
+
+  document.getElementById('listaCategorias').innerHTML = `
+    <div style="display:grid;grid-template-columns:${colunas};gap:0 12px">
+      ${cabecalho}
+      ${linhas}
+    </div>
+  `
 }
 
 function renderUltimas(lancamentos) {
