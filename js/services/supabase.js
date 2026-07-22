@@ -173,6 +173,13 @@ export async function inserirLancamento(lancamento) {
 
 // Gera próximo ID de lançamento
 export async function proximoIdLancamento() {
+  const [id] = await proximosIdsLancamento(1)
+  return id
+}
+
+// Reserva um bloco de `qtd` IDs de lançamento sequenciais e consecutivos,
+// lendo o maior id_lancamento existente uma única vez
+export async function proximosIdsLancamento(qtd) {
   const { data, error } = await supabase
     .from('lancamentos')
     .select('id_lancamento')
@@ -180,11 +187,10 @@ export async function proximoIdLancamento() {
     .limit(1)
 
   if (error) throw error
-  if (!data.length) return 'L000001'
 
-  const ultimo = data[0].id_lancamento
-  const num    = parseInt(ultimo.replace('L', '')) + 1
-  return `L${String(num).padStart(6, '0')}`
+  const proximo = data.length ? parseInt(data[0].id_lancamento.replace('L', '')) + 1 : 1
+
+  return Array.from({ length: qtd }, (_, i) => `L${String(proximo + i).padStart(6, '0')}`)
 }
 
 // Gera próximo ID de parcela

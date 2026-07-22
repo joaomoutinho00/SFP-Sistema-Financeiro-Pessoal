@@ -3,7 +3,7 @@
 // ============================================================
 
 import { supabase } from '../config.js'
-import { proximoIdLancamento, proximoIdParcela, proximoIdTransf } from '../services/supabase.js'
+import { proximoIdLancamento, proximosIdsLancamento, proximoIdParcela, proximoIdTransf } from '../services/supabase.js'
 
 const TIPOS = [
   { id: 1, slug: 'entrada',  label: 'Entrada'       },
@@ -1032,14 +1032,17 @@ export async function abrirNovoLancamento() {
         idFatura = await resolverFatura(idConta, competencia)
       }
 
-      const [idLancamento, idParcela] = await Promise.all([
-        proximoIdLancamento(),
+      const temParcelasFuturas = qtdParcelas && qtdParcelas > 1 && parcelaAtual < qtdParcelas
+      const totalLancamentos   = temParcelasFuturas ? (qtdParcelas - parcelaAtual + 1) : 1
+
+      const [idsLancamento, idParcela] = await Promise.all([
+        proximosIdsLancamento(totalLancamentos),
         (qtdParcelas && qtdParcelas > 1) ? proximoIdParcela() : Promise.resolve(null),
       ])
 
       // Se tem parcelamento, cria lançamentos futuros
       let lancamentosParaParcelas = [{
-        id_lancamento:   idLancamento,
+        id_lancamento:   idsLancamento[0],
         data,
         id_metodo:       idMetodo,
         id_conta:        idConta,
@@ -1055,7 +1058,7 @@ export async function abrirNovoLancamento() {
         id_fatura:       idFatura,
       }]
 
-      if (qtdParcelas && qtdParcelas > 1 && parcelaAtual < qtdParcelas) {
+      if (temParcelasFuturas) {
         const dataObj = new Date(data + 'T12:00:00')
         for (let i = parcelaAtual + 1; i <= qtdParcelas; i++) {
           // Parcelas futuras caem sempre no dia 1 do mês
@@ -1063,10 +1066,9 @@ export async function abrirNovoLancamento() {
           const novaDataStr = novaData.toISOString().split('T')[0]
           const novaCompetencia = competenciaParaCredito(novaDataStr, idConta, contas)
           const novaIdFatura = await resolverFatura(idConta, novaCompetencia)
-          const novoIdLanc = await proximoIdLancamento()
 
           lancamentosParaParcelas.push({
-            id_lancamento:   novoIdLanc,
+            id_lancamento:   idsLancamento[i - parcelaAtual],
             data:            novaDataStr,
             id_metodo:       idMetodo,
             id_conta:        idConta,

@@ -169,6 +169,12 @@ atrito de manter uma planilha manual.
 - **Motivo:** consistência entre Visão Geral e DRE; evita duas definições divergentes de "despesa". Alternativa descartada: regra independente no módulo da aba.
 - **Consequências:** mudanças na regra de tipos devem ser feitas na camada service para manter as telas alinhadas.
 
+### ADR-SP004-001 — Reserva de bloco de IDs no cliente em vez de gerar no banco (spec 004-corrigir-ids-duplicados-parcelamento)
+- **Contexto:** `proximoIdLancamento()` lê o maior `id_lancamento` do banco e soma 1; chamada uma vez por parcela antes de qualquer gravação, todas as parcelas recebiam o mesmo `Lnnnnnn`, causando `duplicate key value violates unique constraint "lancamentos_pkey"` ao salvar lançamentos parcelados.
+- **Decisão:** ler o último identificador uma única vez e derivar em memória o bloco completo de IDs necessário para o lote (`proximosIdsLancamento(qtd)`), preservando o formato `Lnnnnnn`.
+- **Motivo:** corrige a causa raiz com mudança mínima e reduz N consultas para uma. Alternativa descartada: mover a geração para `sequence`/`trigger` no PostgreSQL — exigiria migração de banco e não se justifica em app single-user.
+- **Consequências:** a unicidade depende de o cliente ser o único escritor entre a leitura e o `insert` — aceitável no cenário single-user.
+
 ## Questões em aberto e riscos
 
 - **Risco:** ~~a aba **DRE** está na navegação mas não há módulo/rota~~ — resolvido em spec 002-dre.
