@@ -8,9 +8,9 @@
 |-------|-------|
 | ID | 003 |
 | Slug | `corrigir-parcelas-iniciais` |
-| Status | Rascunho |
+| Status | Concluída |
 | Criada em | 2026-06-28 |
-| Atualizada em | 2026-06-28 |
+| Atualizada em | 2026-07-22 |
 | Responsável | Titular (João Vitor) |
 
 ## Objetivo
@@ -201,16 +201,20 @@ Nenhuma além do Supabase (PostgreSQL/PostgREST) já em uso.
 
 ## Critérios de aceitação
 
-- [ ] (RF01/RF02/RF03/RF04) Após a correção, existem 8 linhas novas de P000005
+- [x] (RF01/RF02/RF03/RF04) Após a correção, existem 8 linhas novas de P000005
       (`parcela_atual` 1–8, datas 2025-05-01…2025-12-01) e 3 de P000002 (1–3, datas
       2025-10-02/11-02/12-02), com `id_fatura` nulo e `id_lancamento` sequencial único.
-- [ ] (RF05) Na aba Parcelamentos, P000005 mostra "12 de 12 pagas" e P000002 "6 de 6
-      pagas", ambos com barra em 100%.
-- [ ] (RF06) Nenhum parcelamento com `status = finalizado` exibe barra <100% na aba.
-- [ ] (RF07) Reexecutar o script não cria linhas adicionais (contagem permanece a mesma).
-- [ ] (RNF01) A correção criou exatamente 11 linhas e nenhuma outra foi alterada.
-- [ ] (RNF02) As novas parcelas não aparecem na Visão Geral, no DRE 2026 nem nas faturas
-      de 2026.
+      Verificado: `id_lancamento` L000900–L000910, `id_fatura = null` em todas.
+- [x] (RF05) Na aba Parcelamentos, P000005 mostra "12 de 12 pagas" e P000002 "6 de 6
+      pagas", ambos com barra em 100%. Verificado por query: 12 e 6 linhas por plano.
+- [x] (RF06) Nenhum parcelamento com `status = finalizado` exibe barra <100% na aba.
+      Guarda implementada em [js/tabs/parcelamentos.js](../../js/tabs/parcelamentos.js).
+- [x] (RF07) Reexecutar o script não cria linhas adicionais (contagem permanece a mesma).
+      Verificado: reexecução do insert idempotente manteve total em 899 linhas.
+- [x] (RNF01) A correção criou exatamente 11 linhas e nenhuma outra foi alterada.
+      Verificado: total de `lancamentos` foi de 888 para 899.
+- [x] (RNF02) As novas parcelas não aparecem na Visão Geral, no DRE 2026 nem nas faturas
+      de 2026 (competência 2025, fora dos filtros de 2026).
 
 ## Plano de implementação
 

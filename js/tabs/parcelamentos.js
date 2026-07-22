@@ -49,9 +49,13 @@ async function buscarParcelamentos() {
     const restantes = parcelas.filter(p => p.data > hoje)
     const valorPago = pagas.reduce((s, p) => s + Math.abs(p.valor), 0)
     const valorRest = restantes.reduce((s, p) => s + Math.abs(p.valor), 0)
-    const pct       = qtdTotal > 0 ? Math.round(pagas.length / qtdTotal * 100) : 0
     const ultimaParc = parcelas.find(p => p.parcela_atual === qtdTotal)
     const status    = (restantes.length > 0 || !ultimaParc) ? 'andamento' : 'finalizado'
+    // Um parcelamento finalizado nunca exibe barra <100%, mesmo que faltem
+    // parcelas iniciais no banco (ex.: registradas antes do início do uso do SFP).
+    const pct       = status === 'finalizado'
+      ? 100
+      : (qtdTotal > 0 ? Math.round(pagas.length / qtdTotal * 100) : 0)
 
     return {
       id_parcela: ref.id_parcela,

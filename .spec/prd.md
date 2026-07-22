@@ -169,6 +169,24 @@ atrito de manter uma planilha manual.
 - **Motivo:** consistência entre Visão Geral e DRE; evita duas definições divergentes de "despesa". Alternativa descartada: regra independente no módulo da aba.
 - **Consequências:** mudanças na regra de tipos devem ser feitas na camada service para manter as telas alinhadas.
 
+### ADR-SP003-001 — Inserir as parcelas faltantes em vez de ajustar `qtd_parcelas` (spec 003-corrigir-parcelas-iniciais)
+- **Contexto:** parcelamentos iniciados em 2025 (P000005, P000002) tinham as primeiras parcelas não lançadas porque o uso do SFP só começou em 2026, deixando o plano incompleto no banco.
+- **Decisão:** inserir as parcelas de 2025 faltantes com data/valor reais, em vez de reduzir `qtd_parcelas` ao existente.
+- **Motivo:** preserva a verdade histórica (foi 12x/6x e o valor total pago real). Reduzir `qtd_parcelas` foi descartado por falsear o histórico; correção só visual foi descartada por deixar o banco inconsistente.
+- **Consequências:** passam a existir lançamentos com competência de 2025; aceitável porque ficam fora das telas de 2026 (Visão Geral, DRE, faturas).
+
+### ADR-SP003-002 — Parcelas de 2025 como registros históricos neutros (`id_fatura = null`) (spec 003-corrigir-parcelas-iniciais)
+- **Contexto:** as parcelas inseridas são de cartão de crédito e normalmente se ligam a uma fatura.
+- **Decisão:** não criar/associar faturas de 2025; `id_fatura` fica nulo nessas parcelas.
+- **Motivo:** o objetivo é só a coerência do parcelamento; criar faturas de 2025 (inexistentes no sistema) traria dados e telas do ano anterior sem valor para o titular.
+- **Consequências:** a tela de cartões de 2025 não reflete essas parcelas — irrelevante, pois o uso do SFP começou em 2026.
+
+### ADR-SP003-003 — Guarda `finalizado ⇒ 100%` no render de Parcelamentos (spec 003-corrigir-parcelas-iniciais)
+- **Contexto:** um parcelamento pode ser classificado `finalizado` (última parcela existe e está no passado) mesmo com parcelas iniciais ausentes no banco, fazendo `pct` (baseado em `pagas.length / qtd_parcelas`) ficar <100%.
+- **Decisão:** em [js/tabs/parcelamentos.js](../js/tabs/parcelamentos.js), forçar `pct = 100` sempre que `status === 'finalizado'`, na montagem do grupo.
+- **Motivo:** correção de baixo custo e sem consulta extra ao banco; alternativa de recalcular o `status` por cobertura de `parcela_atual` foi adiada por não ser necessária ao caso atual.
+- **Consequências:** um plano marcado finalizado com gap de dados exibirá 100% mesmo sem todas as linhas — comportamento desejado (HU03 do PRD).
+
 ### ADR-SP004-001 — Reserva de bloco de IDs no cliente em vez de gerar no banco (spec 004-corrigir-ids-duplicados-parcelamento)
 - **Contexto:** `proximoIdLancamento()` lê o maior `id_lancamento` do banco e soma 1; chamada uma vez por parcela antes de qualquer gravação, todas as parcelas recebiam o mesmo `Lnnnnnn`, causando `duplicate key value violates unique constraint "lancamentos_pkey"` ao salvar lançamentos parcelados.
 - **Decisão:** ler o último identificador uma única vez e derivar em memória o bloco completo de IDs necessário para o lote (`proximosIdsLancamento(qtd)`), preservando o formato `Lnnnnnn`.
